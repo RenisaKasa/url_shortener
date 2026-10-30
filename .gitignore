@@ -31,3 +31,12 @@ build/
 
 ### VS Code ###
 .vscode/
+
+# Local credentials and Angular build artifacts
+.env
+.env.*
+!.env.example
+node_modules/
+dist/
+.angular/
+coverage/

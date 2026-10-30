@@ -1,0 +1,8 @@
+<main>
+  <a class="brand" href="/login">↗ Linkly.</a>
+  <h1>You’re in.</h1>
+  <p>Welcome back, {{ auth.user()?.email }}.</p>
+  <p>Your account is connected. Your link management dashboard is coming next.</p>
+  <button type="button" (click)="logout()" [disabled]="loading()">{{ loading() ? 'Logging out…' : 'Log out' }}</button>
+  @if (error()) { <p role="alert">{{ error() }}</p> }
+</main>
