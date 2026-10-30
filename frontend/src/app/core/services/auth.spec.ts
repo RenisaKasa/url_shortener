@@ -57,4 +57,12 @@ describe('Session authentication', () => {
     logout.flush(null, { status: 204, statusText: 'No Content' });
     expect(auth.user()).toBeNull();
   });
+
+  it('clears stale identity when the server session has expired', () => {
+    auth.restoreSession().subscribe();
+    http.expectOne('/api/auth/me').flush(account);
+    auth.restoreSession().subscribe({ error: () => {} });
+    http.expectOne('/api/auth/me').flush({}, { status: 401, statusText: 'Unauthorized' });
+    expect(auth.user()).toBeNull();
+  });
 });

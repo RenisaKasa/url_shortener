@@ -1,4 +1,5 @@
-import { Component } from '@angular/core';
+import { MessagesService } from '../../core/i18n/messages';
+import { Component, inject } from '@angular/core';
 
 @Component({
   selector: 'app-admin',
@@ -7,5 +8,8 @@ import { Component } from '@angular/core';
   styleUrl: './admin.scss',
 })
 export class Admin {
+  readonly copy = inject(MessagesService);
+  readonly text = this.copy.text;
+  readonly year = new Date().getFullYear();
 
 }
