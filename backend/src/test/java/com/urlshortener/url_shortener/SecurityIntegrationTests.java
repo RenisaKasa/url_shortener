@@ -167,6 +167,22 @@ class SecurityIntegrationTests {
     }
 
     @Test
+    void adminTestEndpointAllowsOnlyAdministrators() throws Exception {
+        mvc.perform(get("/api/admin/test")).andExpect(status().isUnauthorized());
+
+        var user = account("user@example.com", Role.USER);
+        var regularBrowser = login(user.getEmail());
+        mvc.perform(get("/api/admin/test").session(regularBrowser.session))
+                .andExpect(status().isForbidden());
+
+        var admin = account("admin@example.com", Role.ADMIN);
+        var adminBrowser = login(admin.getEmail());
+        mvc.perform(get("/api/admin/test").session(adminBrowser.session))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.message").value("Admin access confirmed"));
+    }
+
+    @Test
     void adminListsArePaginatedAndDoNotExposePasswordHashes() throws Exception {
         var admin = account("admin@example.com", Role.ADMIN);
         var user = account("user@example.com", Role.USER);
