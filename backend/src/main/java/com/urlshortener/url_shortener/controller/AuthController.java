@@ -13,6 +13,9 @@ import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.web.authentication.session.SessionAuthenticationStrategy;
 import org.springframework.security.web.context.SecurityContextRepository;
 import org.springframework.security.web.csrf.CsrfToken;
+import org.springframework.security.web.authentication.logout.CompositeLogoutHandler;
+import org.springframework.security.web.authentication.logout.CookieClearingLogoutHandler;
+import org.springframework.security.web.authentication.logout.SecurityContextLogoutHandler;
 import org.springframework.web.bind.annotation.*;
 import java.util.Map;
 
@@ -57,5 +60,16 @@ public class AuthController {
     @GetMapping("/me")
     public UserResponse me(@AuthenticationPrincipal AccountPrincipal principal) {
         return authService.currentUser(principal);
+    }
+
+    @PutMapping("/password")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void changePassword(@Valid @RequestBody ChangePasswordRequest credentials,
+                               HttpServletRequest request, HttpServletResponse response) {
+        authService.changePassword(credentials);
+        // End this session now; the incremented sessionVersion revokes every other existing login.
+        new CompositeLogoutHandler(new SecurityContextLogoutHandler(),
+                new CookieClearingLogoutHandler("JSESSIONID"))
+                .logout(request, response, SecurityContextHolder.getContext().getAuthentication());
     }
 }

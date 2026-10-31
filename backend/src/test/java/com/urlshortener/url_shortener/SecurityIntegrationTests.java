@@ -278,6 +278,88 @@ class SecurityIntegrationTests {
                         .header("Access-Control-Request-Method", "POST")).andExpect(status().isForbidden());
     }
 
+    @Test
+    void passwordChangeUpdatesOnlyTheCurrentAccountAndRevokesAllItsSessions() throws Exception {
+        var user = account("user@example.com", Role.USER);
+        var other = account("other@example.com", Role.USER);
+        var browser = login(user.getEmail());
+        var otherLogin = login(user.getEmail());
+        var unrelated = login(other.getEmail());
+        String nextPassword = "different-password";
+
+        mvc.perform(put("/api/auth/password").session(browser.session)
+                        .header("X-CSRF-TOKEN", browser.token).contentType(MediaType.APPLICATION_JSON)
+                        .content(json.writeValueAsString(Map.of("currentPassword", PASSWORD,
+                                "newPassword", nextPassword, "userId", other.getId()))))
+                .andExpect(status().isNoContent())
+                .andExpect(cookie().maxAge("JSESSIONID", 0));
+        assertThat(browser.session.isInvalid()).isTrue();
+        var saved = users.findById(user.getId()).orElseThrow();
+        assertThat(saved.getRole()).isEqualTo(Role.USER);
+        assertThat(saved.getSessionVersion()).isEqualTo(user.getSessionVersion() + 1);
+        assertThat(saved.getPasswordHash()).isNotEqualTo(nextPassword);
+        assertThat(passwords.matches(nextPassword, saved.getPasswordHash())).isTrue();
+        assertThat(passwords.matches(PASSWORD, saved.getPasswordHash())).isFalse();
+        mvc.perform(get("/api/auth/me").session(otherLogin.session)).andExpect(status().isUnauthorized());
+        mvc.perform(get("/api/auth/me").session(unrelated.session)).andExpect(status().isOk());
+        failedLogin(user.getEmail(), PASSWORD);
+        var fresh = login(user.getEmail(), nextPassword);
+        mvc.perform(get("/api/auth/me").session(fresh.session)).andExpect(status().isOk());
+    }
+
+    @Test
+    void administratorsCanChangeTheirOwnPasswordWithoutLosingTheirRole() throws Exception {
+        var admin = account("admin@example.com", Role.ADMIN);
+        var browser = login(admin.getEmail());
+        mvc.perform(put("/api/auth/password").session(browser.session)
+                        .header("X-CSRF-TOKEN", browser.token).contentType(MediaType.APPLICATION_JSON)
+                        .content(passwordChange(PASSWORD, "new-admin-password")))
+                .andExpect(status().isNoContent());
+        var fresh = login(admin.getEmail(), "new-admin-password");
+        mvc.perform(get("/api/admin/test").session(fresh.session)).andExpect(status().isOk());
+    }
+
+    @Test
+    void passwordChangeRejectsIncorrectCurrentPasswordAndInvalidNewPasswords() throws Exception {
+        var user = account("user@example.com", Role.USER);
+        var browser = login(user.getEmail());
+        String beforeHash = users.findById(user.getId()).orElseThrow().getPasswordHash();
+        for (String[] attempt : new String[][]{
+                {"wrong-password", "different-password"}, {PASSWORD, "short"},
+                {PASSWORD, PASSWORD}, {PASSWORD, "\u00e9".repeat(37)},
+                {"\u00e9".repeat(37), "different-password"}, {"", "different-password"},
+                {PASSWORD, "a".repeat(73)}}) {
+            mvc.perform(put("/api/auth/password").session(browser.session)
+                            .header("X-CSRF-TOKEN", browser.token).contentType(MediaType.APPLICATION_JSON)
+                            .content(passwordChange(attempt[0], attempt[1])))
+                    .andExpect(status().isBadRequest()).andExpect(jsonPath("$.status").value(400));
+        }
+        var saved = users.findById(user.getId()).orElseThrow();
+        assertThat(saved.getPasswordHash()).isEqualTo(beforeHash);
+        assertThat(saved.getSessionVersion()).isEqualTo(user.getSessionVersion());
+        mvc.perform(get("/api/auth/me").session(browser.session)).andExpect(status().isOk());
+    }
+
+    @Test
+    void passwordChangeRequiresAuthenticationAndCsrfAndIsDocumented() throws Exception {
+        var anonymous = csrf(null);
+        mvc.perform(put("/api/auth/password").session(anonymous.session)
+                        .header("X-CSRF-TOKEN", anonymous.token).contentType(MediaType.APPLICATION_JSON)
+                        .content(passwordChange(PASSWORD, "different-password")))
+                .andExpect(status().isUnauthorized());
+        var user = account("user@example.com", Role.USER);
+        var browser = login(user.getEmail());
+        mvc.perform(put("/api/auth/password").session(browser.session).contentType(MediaType.APPLICATION_JSON)
+                        .content(passwordChange(PASSWORD, "different-password")))
+                .andExpect(status().isForbidden());
+        mvc.perform(get("/v3/api-docs")).andExpect(status().isOk())
+                .andExpect(jsonPath("$.paths['/api/auth/password'].put.responses['204']").exists());
+    }
+
+    private String passwordChange(String current, String next) throws Exception {
+        return json.writeValueAsString(Map.of("currentPassword", current, "newPassword", next));
+    }
+
     private User account(String email, Role role) {
         var user = new User();
         user.setEmail(email);
@@ -309,9 +391,13 @@ class SecurityIntegrationTests {
     }
 
     private Browser login(String email) throws Exception {
+        return login(email, PASSWORD);
+    }
+
+    private Browser login(String email, String password) throws Exception {
         var browser = csrf(null);
         mvc.perform(post("/api/auth/login").session(browser.session).header("X-CSRF-TOKEN", browser.token)
-                        .contentType(MediaType.APPLICATION_JSON).content(credentials(email, PASSWORD)))
+                        .contentType(MediaType.APPLICATION_JSON).content(credentials(email, password)))
                 .andExpect(status().isOk());
         return csrf(browser.session);
     }

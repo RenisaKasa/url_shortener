@@ -61,7 +61,7 @@ public class AdminService {
 
     @Transactional
     public UserResponse setActive(Long id, boolean active) {
-        var user = users.findById(id)
+        var user = users.findByIdForUpdate(id)
                 .orElseThrow(() -> new ResponseStatusException(
                         HttpStatus.NOT_FOUND,
                         "User not found"
