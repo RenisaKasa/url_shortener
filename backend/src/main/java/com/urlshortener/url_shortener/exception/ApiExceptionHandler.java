@@ -7,6 +7,7 @@ import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.server.ResponseStatusException;
 import org.springframework.http.converter.HttpMessageNotReadableException;
+import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
 import java.util.LinkedHashMap;
 
 @RestControllerAdvice
@@ -38,5 +39,19 @@ public class ApiExceptionHandler {
     @ExceptionHandler(DataIntegrityViolationException.class)
     public ResponseEntity<ApiError> conflict(DataIntegrityViolationException exception) {
         return ResponseEntity.status(409).body(new ApiError(409, "A record with these details already exists"));
+    }
+
+    @ExceptionHandler(MethodArgumentTypeMismatchException.class)
+    public ResponseEntity<ApiError> invalidParameter(
+            MethodArgumentTypeMismatchException exception
+    ) {
+        return ResponseEntity.badRequest().body(
+                new ApiError(
+                        400,
+                        "Invalid value for parameter '"
+                                + exception.getName()
+                                + "'"
+                )
+        );
     }
 }

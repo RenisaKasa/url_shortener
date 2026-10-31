@@ -17,10 +17,28 @@ import org.springframework.security.web.csrf.*;
 import org.springframework.security.web.authentication.session.*;
 import org.springframework.web.cors.*;
 import java.util.List;
+import org.springdoc.core.customizers.OpenApiCustomizer;
+import io.swagger.v3.oas.models.Operation;
+import io.swagger.v3.oas.models.PathItem;
+import io.swagger.v3.oas.models.responses.ApiResponse;
+import io.swagger.v3.oas.models.responses.ApiResponses;
 
 @Configuration
 @EnableMethodSecurity
 public class SecurityConfig {
+    // Logout is handled by Spring Security's filter, so MVC cannot document it automatically.
+    @Bean
+    public OpenApiCustomizer logoutDocumentation() {
+        return api -> api.path("/api/auth/logout", new PathItem().post(new Operation()
+                .operationId("logout")
+                .addTagsItem("auth-controller")
+                .summary("Log out of the current session")
+                .description("Invalidates the session and clears its cookie. Requires a CSRF token, supplied automatically by Swagger.")
+                .responses(new ApiResponses()
+                        .addApiResponse("204", new ApiResponse().description("Logged out"))
+                        .addApiResponse("403", new ApiResponse().description("Missing or invalid CSRF token")))));
+    }
+
     @Bean
     public SecurityContextRepository securityContextRepository() {
         return new HttpSessionSecurityContextRepository();
