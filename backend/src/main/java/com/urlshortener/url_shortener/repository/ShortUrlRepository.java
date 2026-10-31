@@ -77,4 +77,15 @@ public interface ShortUrlRepository extends
             @Param("userId") Long userId,
             @Param("now") Instant now
     );
+
+
+    @Modifying(clearAutomatically = true, flushAutomatically = true)
+    @Query("""
+        update ShortUrl u
+        set u.active = false
+        where u.active = true
+          and u.expiresAt is not null
+          and u.expiresAt <= :now
+        """)
+    int deactivateExpired(@Param("now") Instant now);
 }

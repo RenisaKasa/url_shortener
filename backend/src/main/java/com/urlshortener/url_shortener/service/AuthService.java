@@ -1,6 +1,7 @@
 package com.urlshortener.url_shortener.service;
 
 import com.urlshortener.url_shortener.dto.RegisterRequest;
+import com.urlshortener.url_shortener.dto.ChangePasswordRequest;
 import com.urlshortener.url_shortener.dto.UserResponse;
 import com.urlshortener.url_shortener.entity.Role;
 import com.urlshortener.url_shortener.entity.User;
@@ -8,6 +9,8 @@ import com.urlshortener.url_shortener.repository.UserRepository;
 import com.urlshortener.url_shortener.security.AccountPrincipal;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
@@ -42,6 +45,30 @@ public class AuthService {
         user.setRole(Role.USER);
         user.setActive(true);
         users.save(user);
+    }
+
+    @Transactional
+    @PreAuthorize("isAuthenticated()")
+    public void changePassword(ChangePasswordRequest request) {
+        var principal = (AccountPrincipal) SecurityContextHolder.getContext()
+                .getAuthentication().getPrincipal();
+        var user = users.findByIdForUpdate(principal.getId())
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Authentication required"));
+        if (!user.isActive() || user.getSessionVersion() != principal.getSessionVersion()) {
+            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Please sign in again");
+        }
+        if (request.currentPassword().getBytes(StandardCharsets.UTF_8).length > 72
+                || !passwords.matches(request.currentPassword(), user.getPasswordHash())) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Current password is incorrect");
+        }
+        if (request.newPassword().getBytes(StandardCharsets.UTF_8).length > 72) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "New password must not exceed 72 UTF-8 bytes");
+        }
+        if (passwords.matches(request.newPassword(), user.getPasswordHash())) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "New password must differ from the current password");
+        }
+        user.setPasswordHash(passwords.encode(request.newPassword()));
+        user.setSessionVersion(user.getSessionVersion() + 1);
     }
 
     @Transactional(readOnly = true)
