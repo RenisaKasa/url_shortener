@@ -1,8 +1,133 @@
-<main>
-  <a class="brand" routerLink="/login">↗ {{ text().common.brand }}.</a>
-  <h1>{{ text().dashboard.heading }}</h1>
-  <p>{{ copy.format(text().dashboard.welcome, { email: auth.user()?.email ?? '' }) }}</p>
-  <p>{{ text().dashboard.description }}</p>
-  <button type="button" (click)="logout()" [disabled]="loading()">{{ loading() ? text().dashboard.loggingOut : text().dashboard.logout }}</button>
-  @if (error()) { <p role="alert">{{ error() }}</p> }
-</main>
+<div class="workspace">
+  <aside class="sidebar">
+    <a class="brand" routerLink="/dashboard"><span aria-hidden="true">↗</span> {{ text().common.brand }}.</a>
+    <nav [attr.aria-label]="m.navigation">
+      <a href="/dashboard#overview" (click)="scrollToSection('overview', $event)" [class.selected]="activeSection() === 'overview'" [attr.aria-current]="activeSection() === 'overview' ? 'location' : null"><span aria-hidden="true">◈</span> {{ m.overview }}</a>
+      <a href="/dashboard#my-links" (click)="scrollToSection('my-links', $event)" [class.selected]="activeSection() === 'my-links'" [attr.aria-current]="activeSection() === 'my-links' ? 'location' : null"><span aria-hidden="true">↗</span> {{ m.myLinks }}</a>
+      @if (auth.user()?.role === 'ADMIN') {
+        <a routerLink="/admin"><span aria-hidden="true">◈</span> {{ text().admin.heading }}</a>
+      }
+    </nav>
+    <div class="account"><p>{{ auth.user()?.email }}</p><span>{{ m.personalWorkspace }}</span></div>
+    <button type="button" class="secondary" (click)="logout()" [disabled]="loggingOut() || !!busy()">{{ loggingOut() ? m.loggingOut : m.logout }}</button>
+  </aside>
+  <main id="overview">
+    <header class="page-header" #dashboardHeader>
+      <h1 id="workspace-title" tabindex="-1">{{ m.heading }}</h1>
+      <div class="header-actions">
+        <button type="button" class="secondary" (click)="refresh()" [disabled]="statisticsLoading() || listLoading() || !!busy()">{{ m.refresh }} <span aria-hidden="true">↻</span></button>
+        <a class="profile-link" routerLink="/account" [attr.aria-label]="text().account.openAccount" [title]="auth.user()?.email ?? text().account.openAccount">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="8" r="3.5"/><path d="M5 21v-2a7 7 0 0 1 14 0v2"/><circle cx="12" cy="12" r="10.5"/></svg>
+        </a>
+      </div>
+    </header>
+    <p class="page-description">{{ m.description }}</p>
+    @if (success()) { <p class="notice success" role="status">{{ success() }}</p> }
+    @if (actionError()) { <p class="notice error" role="alert">{{ actionError() }}</p> }
+    <section [attr.aria-label]="m.statistics" [attr.aria-busy]="statisticsLoading()">
+      @if (statisticsLoading() && !statistics()) { <p class="muted" role="status">{{ m.loadingStatistics }}</p> }
+      @else if (statisticsError()) {
+        <div class="notice error" role="alert">{{ statisticsError() }}<button type="button" class="text-button" (click)="refresh()">{{ m.retry }}</button></div>
+      } @else {
+        <div class="stats" [class.refreshing]="statisticsLoading()">
+          @for (card of statisticCards; track card.label) {
+            <article class="panel stat"><span>{{ card.label }}</span><strong>{{ card.value | number }}</strong></article>
+          }
+        </div>
+      }
+    </section>
+    <section class="panel create-panel" aria-labelledby="create-title">
+      <div class="section-heading"><div><h2 id="create-title">{{ m.createHeading }}</h2><p class="muted">{{ m.createDescription }}</p></div><span class="decorative-link" aria-hidden="true">↗</span></div>
+      <form [formGroup]="createForm" (ngSubmit)="createLink()" [attr.aria-busy]="busy() === 'create'" novalidate>
+        <div class="create-fields">
+          <div><label for="original-url">{{ m.originalUrl }}</label>
+            <input id="original-url" type="url" formControlName="originalUrl" [placeholder]="m.urlPlaceholder" [readOnly]="!!busy()" [attr.aria-invalid]="createForm.controls.originalUrl.touched && createForm.controls.originalUrl.invalid" aria-describedby="original-url-error" />
+            <p class="field-error" id="original-url-error">{{ fieldError(createForm.controls.originalUrl, 'url') }}</p>
+          </div>
+          <div><label for="custom-alias">{{ m.alias }}</label>
+            <input id="custom-alias" formControlName="customAlias" [placeholder]="m.aliasPlaceholder" [readOnly]="!!busy()" aria-describedby="alias-error" [attr.aria-invalid]="createForm.controls.customAlias.touched && createForm.controls.customAlias.invalid" />
+            <p class="field-error" id="alias-error">{{ fieldError(createForm.controls.customAlias, 'alias') }}</p>
+          </div>
+          <div><label for="create-expiration">{{ m.expiration }}</label>
+            <input id="create-expiration" type="datetime-local" formControlName="expiresAt" [readOnly]="!!busy()" aria-describedby="expiration-error" [attr.aria-invalid]="createForm.controls.expiresAt.touched && createForm.controls.expiresAt.invalid" />
+            <p class="field-error" id="expiration-error">{{ fieldError(createForm.controls.expiresAt, 'date') }}</p>
+          </div>
+        </div>
+        <div class="form-footer"><p class="muted">{{ m.expirationHelp }}</p><button class="primary" type="submit" [disabled]="!!busy()">{{ busy() === 'create' ? m.creating : m.create }} <span aria-hidden="true">→</span></button></div>
+        @if (createError()) { <p class="notice error" role="alert">{{ createError() }}</p> }
+      </form>
+      @if (created(); as link) {
+        <div class="created-link"><div><span class="muted">{{ m.readyToShare }}</span><a [href]="link.shortUrl" target="_blank" rel="noopener noreferrer">{{ link.shortUrl }}</a></div><button type="button" class="secondary" (click)="copyLink(link.shortUrl)">{{ m.copy }}</button></div>
+      }
+    </section>
+    <section class="panel links-panel" id="my-links" aria-labelledby="links-title">
+      <div class="section-heading"><div><h2 id="links-title" tabindex="-1">{{ m.myLinks }}</h2><p class="muted">{{ m.linksDescription }}</p></div></div>
+      <div class="filters">
+        <div class="search"><label for="link-search">{{ m.search }}</label><input id="link-search" type="search" [formControl]="search" [placeholder]="m.searchPlaceholder" maxlength="200" /></div>
+        <div><label for="status-filter">{{ m.statusLabel }}</label>
+          <select id="status-filter" #statusFilter [value]="query().status" (change)="setStatus(statusFilter.value)">
+            <option value="">{{ m.allStatuses }}</option><option value="ACTIVE">{{ m.status.ACTIVE }}</option><option value="INACTIVE">{{ m.status.INACTIVE }}</option><option value="EXPIRED">{{ m.status.EXPIRED }}</option>
+          </select>
+        </div>
+        <div><label for="sort-filter">{{ m.sort }}</label>
+          <select id="sort-filter" #sortFilter [value]="query().sort" (change)="setSort(sortFilter.value)">
+            <option value="createdAt,desc">{{ m.newest }}</option><option value="createdAt,asc">{{ m.oldest }}</option><option value="clickCount,desc">{{ m.mostClicked }}</option><option value="expiresAt,asc">{{ m.expiringFirst }}</option><option value="originalUrl,asc">{{ m.destinationAscending }}</option>
+          </select>
+        </div>
+      </div>
+      <div [attr.aria-busy]="listLoading()">
+        @if (listLoading() && !results()) { <p class="empty" role="status">{{ m.loadingLinks }}</p> }
+        @else if (listError()) { <div class="notice error" role="alert">{{ listError() }}<button type="button" class="text-button" (click)="refresh()">{{ m.retry }}</button></div> }
+        @else if (results(); as page) {
+          @if (page.content.length === 0) {
+            <div class="empty"><span aria-hidden="true">↗</span><h3>{{ m.emptyHeading }}</h3><p>{{ m.emptyDescription }}</p></div>
+          } @else {
+            <div class="table-wrap" [class.refreshing]="listLoading()"><table>
+              <thead><tr><th scope="col">{{ m.destination }}</th><th scope="col">{{ m.statusLabel }}</th><th scope="col">{{ m.clicks }}</th><th scope="col">{{ m.expires }}</th><th scope="col">{{ m.lastAccessed }}</th><th scope="col">{{ m.actions }}</th></tr></thead>
+              <tbody>
+                @for (link of page.content; track link.id) {
+                  <tr>
+                    <td class="destination"><a [href]="shortUrl(link)" target="_blank" rel="noopener noreferrer">{{ shortUrl(link) }}</a><span [title]="link.originalUrl">{{ link.originalUrl }}</span></td>
+                    <td><span [class]="'badge ' + status(link)">{{ m.status[status(link)] }}</span></td>
+                    <td>{{ link.clickCount | number }}</td><td>{{ link.expiresAt ? (link.expiresAt | date:'medium') : m.noExpiry }}</td><td>{{ link.lastAccessedAt ? (link.lastAccessedAt | date:'medium') : m.never }}</td>
+                    <td><div class="row-actions">
+                      <button type="button" class="text-button" (click)="copyLink(shortUrl(link))" [attr.aria-label]="copy.format(m.copyLabel, { code: link.shortCode })">{{ m.copy }}</button>
+                      <button type="button" class="text-button" (click)="openEditor(link)" [disabled]="!!busy() || listLoading() || detailsLoading() !== null">{{ detailsLoading() === link.id ? m.loading : m.edit }}</button>
+                      <button type="button" class="text-button danger-text" (click)="requestDelete(link)" [disabled]="!!busy() || listLoading() || detailsLoading() !== null">{{ m.delete }}</button>
+                    </div></td>
+                  </tr>
+                }
+              </tbody>
+            </table></div>
+          }
+          <div class="pagination">
+            <span class="muted">{{ copy.format(m.resultCount, { count: page.totalElements }) }}</span>
+            <div class="page-controls"><label for="page-size">{{ m.perPage }}</label>
+              <select id="page-size" #pageSize [value]="query().size" (change)="setSize(pageSize.value)"><option value="10">10</option><option value="20">20</option><option value="50">50</option></select>
+              @if (page.totalPages > 0) {
+                <button type="button" class="secondary" (click)="changePage(-1)" [disabled]="page.first || listLoading()" [attr.aria-label]="m.previous">←</button>
+                <span class="muted">{{ copy.format(m.pageLabel, { page: page.number + 1, pages: page.totalPages }) }}</span>
+                <button type="button" class="secondary" (click)="changePage(1)" [disabled]="page.last || listLoading()" [attr.aria-label]="m.next">→</button>
+              }
+            </div>
+          </div>
+        }
+      </div>
+    </section>
+  </main>
+</div>
+<dialog #editDialog class="panel modal workspace-modal" aria-labelledby="edit-title" (cancel)="closeEditor($event)">
+  <h2 id="edit-title">{{ m.editHeading }}</h2><p class="muted">{{ editing()?.originalUrl }}</p>
+  <form [formGroup]="editForm" (ngSubmit)="saveEdit()" novalidate>
+    <label class="checkbox" for="edit-active"><input id="edit-active" type="checkbox" formControlName="active" [attr.disabled]="busy() ? '' : null" /> {{ m.activeAfterSaving }}</label>
+    <label for="edit-expiration">{{ m.expiration }}</label><input id="edit-expiration" type="datetime-local" formControlName="expiresAt" [readOnly]="!!busy()" aria-describedby="edit-expiration-error edit-help" [attr.aria-invalid]="editForm.controls.expiresAt.touched && editForm.controls.expiresAt.invalid" />
+    <p class="field-error" id="edit-expiration-error">{{ fieldError(editForm.controls.expiresAt, 'date') }}</p><p class="muted" id="edit-help">{{ m.editHelp }}</p>
+    @if (actionError()) { <p class="notice error" role="alert">{{ actionError() }}</p> }
+    <div class="dialog-actions"><button type="button" class="secondary" (click)="closeEditor()" [disabled]="!!busy()">{{ m.cancel }}</button><button type="submit" class="primary" [disabled]="!canSave || !!busy()">{{ busy() === 'edit' ? m.saving : m.save }}</button></div>
+  </form>
+</dialog>
+<dialog #deleteDialog class="panel modal workspace-modal" aria-labelledby="delete-title" (cancel)="closeDelete($event)">
+  <h2 id="delete-title">{{ m.deleteHeading }}</h2><p class="muted">{{ copy.format(m.deleteDescription, { code: deleting()?.shortCode ?? '' }) }}</p>
+  @if (actionError()) { <p class="notice error" role="alert">{{ actionError() }}</p> }
+  <div class="dialog-actions"><button type="button" class="secondary" (click)="closeDelete()" [disabled]="!!busy()">{{ m.cancel }}</button><button type="button" class="danger" (click)="deleteLink()" [disabled]="!!busy()">{{ busy() === 'delete' ? m.deleting : m.delete }}</button></div>
+</dialog>

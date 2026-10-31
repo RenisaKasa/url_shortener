@@ -1,4 +1,5 @@
 @use './app/features/auth/auth.shared';
+@use './app/shared/styles/workspace';
 
 * { box-sizing: border-box; }
 body { margin: 0; background: #080d25; color: #f6f5ff; font-family: 'Segoe UI', Arial, sans-serif; }

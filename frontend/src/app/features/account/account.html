@@ -1,0 +1,57 @@
+<div class="workspace">
+  <aside class="sidebar">
+    <a class="brand" [routerLink]="workspacePath"><span aria-hidden="true">↗</span> {{ text().common.brand }}.</a>
+    <nav [attr.aria-label]="text().dashboard.navigation">
+      @if (auth.user()?.role === 'ADMIN') {
+        <a routerLink="/admin"><span aria-hidden="true">◈</span> {{ text().admin.heading }}</a>
+        <a routerLink="/dashboard"><span aria-hidden="true">↗</span> {{ text().admin.personalDashboard }}</a>
+      } @else {
+        <a routerLink="/dashboard"><span aria-hidden="true">◈</span> {{ text().dashboard.overview }}</a>
+        <a routerLink="/dashboard" fragment="my-links"><span aria-hidden="true">↗</span> {{ text().dashboard.myLinks }}</a>
+      }
+      <a routerLink="/account" class="selected" aria-current="page"><span aria-hidden="true">○</span> {{ m.heading }}</a>
+    </nav>
+    <div class="account"><p>{{ auth.user()?.email }}</p><span>{{ auth.user()?.role === 'ADMIN' ? text().admin.workspace : text().dashboard.personalWorkspace }}</span></div>
+    <button type="button" class="secondary" (click)="logout()" [disabled]="loading() || loggingOut()">{{ loggingOut() ? text().dashboard.loggingOut : text().dashboard.logout }}</button>
+  </aside>
+  <main>
+    <header class="page-header"><h1>{{ m.heading }}</h1><a class="secondary" [routerLink]="loading() ? null : workspacePath" [attr.aria-disabled]="loading()">← {{ m.backToWorkspace }}</a></header>
+    <div class="account-content">
+      <p class="page-description">{{ m.description }}</p>
+      <section class="panel details" aria-labelledby="details-title">
+        <div class="avatar" aria-hidden="true"><svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 22v-3a8 8 0 0 1 16 0v3"/></svg></div>
+        <div><h2 id="details-title">{{ m.details }}</h2><dl>
+          <div><dt>{{ text().common.emailLabel }}</dt><dd>{{ auth.user()?.email }}</dd></div>
+          <div><dt>{{ m.role }}</dt><dd>{{ auth.user()?.role === 'ADMIN' ? m.administrator : m.user }}</dd></div>
+        </dl></div>
+      </section>
+      <section class="panel password-panel" aria-labelledby="password-title">
+        <div class="password-summary">
+          <div><h2 id="password-title">{{ text().common.passwordLabel }}</h2><p class="muted">{{ m.passwordSummary }}</p></div>
+          <button #editPasswordButton type="button" class="edit-password" [attr.aria-label]="m.changePassword" [title]="m.changePassword" [attr.aria-expanded]="passwordEditing()" aria-controls="password-editor" (click)="passwordEditing() ? cancelPasswordEditor() : openPasswordEditor()" [disabled]="loading()">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m16 3 5 5M4 20l5-1L21 7a2.1 2.1 0 0 0-5-3L4 16l-1 5Z"/></svg>
+          </button>
+        </div>
+        @if (passwordEditing()) {
+          <form #passwordForm id="password-editor" [formGroup]="form" (ngSubmit)="changePassword()" [attr.aria-busy]="loading()" novalidate>
+            <p class="muted" id="password-help">{{ m.passwordHelp }}</p>
+            @for (field of fields; track field.name) {
+              <div class="field">
+                <label [for]="field.name">{{ field.label }}</label>
+                <div class="password-field">
+                  <input [id]="field.name" [name]="field.name" [formControlName]="field.name" [type]="visible()[field.name] ? 'text' : 'password'" [autocomplete]="field.autocomplete" [readOnly]="loading()" [attr.aria-invalid]="!!fieldError(field.name)" [attr.aria-describedby]="fieldError(field.name) ? field.name + '-error' : 'password-help'" />
+                  <button type="button" (click)="toggle(field.name)" [attr.aria-label]="copy.format(visible()[field.name] ? m.hideField : m.showField, { field: field.label })" [attr.aria-pressed]="visible()[field.name]">{{ visible()[field.name] ? text().common.hide : text().common.show }}</button>
+                </div>
+                @if (fieldError(field.name)) { <p class="field-error" [id]="field.name + '-error'">{{ fieldError(field.name) }}</p> }
+              </div>
+            }
+            @if (error()) { <p class="notice error" role="alert">{{ error() }}</p> }
+            <p class="muted session-note">{{ m.sessionNote }}</p>
+            <div class="dialog-actions"><button type="button" class="secondary" (click)="cancelPasswordEditor()" [disabled]="loading()">{{ text().dashboard.cancel }}</button><button class="primary" type="submit" [disabled]="loading()">{{ loading() ? m.saving : m.save }} <span aria-hidden="true">→</span></button></div>
+          </form>
+        }
+      </section>
+      @if (error() && !passwordEditing()) { <p class="notice error" role="alert">{{ error() }}</p> }
+    </div>
+  </main>
+</div>

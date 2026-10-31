@@ -5,6 +5,7 @@ import { catchError, map, switchMap, tap, throwError } from 'rxjs';
 
 import {
   CsrfToken,
+  ChangePasswordRequest,
   LoginRequest,
   RegisterRequest,
   RegisterResponse,
@@ -55,6 +56,21 @@ export class AuthService {
           map(() => user),
         ),
       ),
+    );
+  }
+
+  clearIdentity(): void {
+    this.identity.set(null);
+  }
+
+  changePassword(credentials: ChangePasswordRequest) {
+    return this.http.get<CsrfToken>(`${this.apiUrl}/csrf`, { withCredentials: true }).pipe(
+      switchMap(csrf => this.http.put<void>(`${this.apiUrl}/password`, credentials, {
+        withCredentials: true,
+        headers: { [csrf.headerName]: csrf.token },
+      })),
+      // The backend ends this session and revokes the account's other sessions.
+      tap(() => this.identity.set(null)),
     );
   }
 
