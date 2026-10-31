@@ -6,7 +6,7 @@ import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
 import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
-
+import com.urlshortener.url_shortener.dto.DashboardStatisticsResponse;
 import java.time.Instant;
 import java.util.List;
 import java.util.Optional;
@@ -48,4 +48,33 @@ public interface ShortUrlRepository extends
               and (u.expiresAt is null or u.expiresAt > :now)
             """)
     int recordClick(@Param("id") Long id, @Param("now") Instant now);
+
+
+    @Query("""
+        select
+            count(u) as totalUrls,
+            coalesce(sum(
+                case
+                    when u.active = true
+                        and (u.expiresAt is null or u.expiresAt > :now)
+                    then 1L
+                    else 0L
+                end
+            ), 0L) as activeUrls,
+            coalesce(sum(
+                case
+                    when u.expiresAt is not null
+                        and u.expiresAt <= :now
+                    then 1L
+                    else 0L
+                end
+            ), 0L) as expiredUrls,
+            coalesce(sum(u.clickCount), 0L) as totalClicks
+        from ShortUrl u
+        where u.user.id = :userId
+        """)
+    DashboardStatistics getDashboardStatistics(
+            @Param("userId") Long userId,
+            @Param("now") Instant now
+    );
 }
