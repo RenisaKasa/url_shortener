@@ -1,4 +1,5 @@
-import { Component } from '@angular/core';
+import { MessagesService } from '../../core/i18n/messages';
+import { Component, inject } from '@angular/core';
 
 @Component({
   selector: 'app-urls',
@@ -7,5 +8,8 @@ import { Component } from '@angular/core';
   styleUrl: './urls.scss',
 })
 export class Urls {
+  readonly copy = inject(MessagesService);
+  readonly text = this.copy.text;
+  readonly year = new Date().getFullYear();
 
 }

@@ -6,8 +6,8 @@ h2 { font-size: 34px; letter-spacing: -1.1px; margin: 0 0 8px; line-height: 1.2;
 .card-copy { color: #c9c9e0; font-size: 14px; margin: 0 0 30px; }
 .form-options { display: flex; justify-content: space-between; align-items: center; gap: 10px; margin: 0 0 25px; font-size: 11px; color: #bbb8d5; }
 .session-dot { width: 4px; height: 4px; margin-right: 6px; background: #91b9d0; box-shadow: none; vertical-align: middle; }
-.form-options button, .signup button { color: #c29aff; font-size: inherit; }
-.form-options button:hover, .signup button:hover { color: #e4caff; text-decoration: underline; }
+.form-options button, .signup a { color: #c29aff; font-size: inherit; }
+.form-options button:hover, .signup a:hover { color: #e4caff; text-decoration: underline; }
 .submit { width: 100%; min-height: 52px; border: 1px solid #c49aff70; border-radius: 10px; background: linear-gradient(105deg, #972cff, #603aff 48%, #377dff); color: #fff; display: flex; justify-content: center; align-items: center; gap: 12px; font-size: 14px; font-weight: 600; box-shadow: 0 6px 25px #683aff35; transition: filter .2s, transform .2s; }
 .submit:hover:not(:disabled) { filter: brightness(1.14); transform: translateY(-1px); }
 .submit span { font-size: 22px; font-weight: 400; }
@@ -20,7 +20,7 @@ h2 { font-size: 34px; letter-spacing: -1.1px; margin: 0 0 8px; line-height: 1.2;
 .google { font-size: 25px; font-weight: 750; background: conic-gradient(#4285f4 0deg 90deg, #34a853 90deg 180deg, #fbbc05 180deg 230deg, #ea4335 230deg 300deg, #4285f4 300deg); color: transparent; background-clip: text; }
 .coming-soon { color: #a7a4c2; text-align: center; font-size: 10px; margin: 10px 0 25px; }
 .signup { font-size: 12px; text-align: center; margin: 0; color: #d0cbe8; }
-.signup button { margin-left: 5px; }
+.signup a { margin-left: 5px; }
 @media (min-width: 1500px) { .login-layout { padding-top: 60px; padding-bottom: 70px; } }
 @media (max-width: 1100px) { .header, .login-layout, footer { width: calc(100% - 64px); } .login-layout { gap: 32px; grid-template-columns: 1fr 400px; } .login-card { padding: 30px; } .wide-break { display: none; } .url-chip { font-size: 10px; } .long-url { left: 0; } .short-url { left: 25px; } .chain { left: 40px; } .pedestal { left: 65px; } .scene-caption { left: 65px; } }
 @media (max-width: 820px) { .header, .login-layout, footer { width: calc(100% - 40px); } .header { height: 88px; } nav { gap: 20px; font-size: 12px; } .login-layout { grid-template-columns: 1fr; gap: 30px; padding: 20px 0 40px; } .hero { text-align: center; } .eyebrow { justify-content: center; margin-bottom: 18px; } h1 { font-size: 44px; letter-spacing: -1.8px; } .desktop-break { display: none; } .hero-copy { margin: auto; font-size: 14px; } .link-scene { height: 245px; width: 350px; margin: 15px auto 20px; transform: scale(.85); transform-origin: top center; } .chain { height: 155px; top: 110px; left: 65px; } .pedestal { bottom: -12px; left: 90px; } .scene-caption { bottom: -42px; left: 90px; } .orbit { width: 340px; height: 130px; top: 100px; } .login-card { width: 100%; max-width: 440px; margin: auto; } footer { flex-wrap: wrap; justify-content: center; gap: 24px; } .footer-note { width: 100%; text-align: center; } }

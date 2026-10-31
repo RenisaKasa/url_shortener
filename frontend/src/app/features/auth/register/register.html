@@ -1,1 +1,183 @@
-<p>register works!</p>
+<div class="register-page">
+  <header>
+    <a class="brand" routerLink="/login" aria-label="{{ text().common.homeLabel }}">
+      <span aria-hidden="true">↗</span> {{ text().common.brand }}.
+    </a>
+
+    <a class="header-login" routerLink="/login"> {{ text().register.alreadyMember }} <strong>{{ text().common.login }} ↗</strong> </a>
+  </header>
+
+  <main>
+    <section class="hero" aria-labelledby="register-hero">
+      <p class="eyebrow">{{ text().common.eyebrow }}</p>
+
+      <h1 id="register-hero">
+        {{ text().register.headline }}<br />
+        <span>{{ text().register.headlineAccent }}</span>
+      </h1>
+
+      <p class="hero-copy">{{ text().register.heroDescription }}</p>
+
+      <div class="illustration" aria-hidden="true">
+        <div class="orbit"></div>
+
+        <div class="url-chip original">
+          <span class="chip-icon">◎</span>
+          <span>{{ text().register.exampleLongUrl }}</span>
+        </div>
+
+        <div class="conversion-arrow">↓</div>
+
+        <div class="url-chip shortened">
+          <span class="chip-icon">↗</span>
+          <strong>{{ text().register.exampleShortUrl }}</strong>
+          <span class="copy-icon">▢</span>
+        </div>
+
+        <div class="chain">
+          <app-link-animation />
+        </div>
+
+        <div class="platform"></div>
+      </div>
+
+      <div class="benefits">
+        <span>✓ {{ text().register.benefitShorten }}</span>
+        <span>✓ {{ text().register.benefitTrack }}</span>
+        <span>✓ {{ text().register.benefitManage }}</span>
+      </div>
+    </section>
+
+    <section class="register-card" aria-labelledby="register-title">
+      @if (registered()) {
+        <div class="success" role="status" aria-live="polite">
+          <span class="success-icon" aria-hidden="true">✓</span>
+
+          <h2 id="register-title" #successTitle tabindex="-1">{{ text().register.successHeading }}</h2>
+
+          <p>{{ text().register.successDescription }}</p>
+
+          <a class="primary-button" routerLink="/login">
+            {{ text().register.continueToLogin }} <span aria-hidden="true">→</span>
+          </a>
+        </div>
+      } @else {
+        <p class="card-eyebrow">{{ text().register.cardEyebrow }}</p>
+
+        <h2 id="register-title">{{ text().register.heading }}</h2>
+        <p class="card-copy">{{ text().register.description }}</p>
+
+        <form [formGroup]="form" (ngSubmit)="onSubmit()" [attr.aria-busy]="loading()" autocomplete="on" novalidate>
+          <div class="field">
+            <label for="register-email">{{ text().common.emailLabel }}</label>
+
+            <input
+              id="register-email"
+              type="email"
+              formControlName="email"
+              autocomplete="username"
+              placeholder="{{ text().common.emailPlaceholder }}"
+              [readOnly]="loading()"
+              [attr.aria-invalid]="form.controls.email.touched && form.controls.email.invalid"
+              [attr.aria-describedby]="
+                form.controls.email.touched && form.controls.email.invalid
+                  ? 'register-email-error'
+                  : null
+              "
+            />
+
+            @if (emailError) {
+              <p class="field-error" id="register-email-error">{{ emailError }}</p>
+            }
+          </div>
+
+          <div class="field">
+            <label for="register-password">{{ text().common.passwordLabel }}</label>
+
+            <div class="password-field">
+              <input
+                id="register-password"
+                [type]="showPassword() ? 'text' : 'password'"
+                formControlName="password"
+                autocomplete="new-password"
+                placeholder="{{ text().register.passwordPlaceholder }}"
+                [readOnly]="loading()"
+                [attr.aria-describedby]="passwordError ? 'password-help register-password-error' : 'password-help'"
+                [attr.aria-invalid]="
+                  form.controls.password.touched && form.controls.password.invalid
+                "
+              />
+
+              <button
+                type="button"
+                (click)="showPassword.set(!showPassword())"
+                [attr.aria-label]="showPassword() ? text().common.hidePassword : text().common.showPassword"
+                [attr.aria-pressed]="showPassword()"
+              >
+                {{ showPassword() ? text().common.hide : text().common.show }}
+              </button>
+            </div>
+
+            @if (passwordError) {
+              <p class="field-error" id="register-password-error">{{ passwordError }}</p>
+            }
+          </div>
+
+          <div class="field">
+            <label for="confirm-password">{{ text().register.confirmationLabel }}</label>
+
+            <div class="password-field">
+              <input
+                id="confirm-password"
+                [type]="showConfirmation() ? 'text' : 'password'"
+                formControlName="confirmPassword"
+                autocomplete="new-password"
+                placeholder="{{ text().register.confirmationPlaceholder }}"
+                [readOnly]="loading()"
+                [attr.aria-invalid]="confirmationInvalid"
+                [attr.aria-describedby]="confirmationInvalid ? 'confirmation-error' : null"
+              />
+
+              <button
+                type="button"
+                (click)="showConfirmation.set(!showConfirmation())"
+                [attr.aria-label]="
+                  showConfirmation() ? text().register.hideConfirmation : text().register.showConfirmation
+                "
+                [attr.aria-pressed]="showConfirmation()"
+              >
+                {{ showConfirmation() ? text().common.hide : text().common.show }}
+              </button>
+            </div>
+
+            @if (confirmationInvalid) {
+              <p class="field-error" id="confirmation-error">{{ form.controls.confirmPassword.hasError('required') ? text().validation.confirmRequired : text().validation.passwordMismatch }}</p>
+            }
+          </div>
+
+          <p class="password-help" id="password-help">
+            {{ text().register.passwordHelp }}
+          </p>
+
+          @if (error()) {
+            <p class="error-message" role="alert">{{ error() }}</p>
+          }
+
+          <button class="primary-button" type="submit" [disabled]="loading()">
+            {{ loading() ? text().register.submitting : text().register.submit }}
+            <span aria-hidden="true">→</span>
+          </button>
+        </form>
+
+        <p class="login-link">
+          {{ text().register.existingAccount }}
+          <a routerLink="/login">{{ text().common.login }} ↗</a>
+        </p>
+
+        <p class="security-note">{{ text().register.accountNote }}</p>
+      }
+    </section>
+  </main>
+
+  <footer>{{ text().common.footerTagline }} <span>{{ copy.format(text().common.copyright, { year: year }) }}</span></footer>
+</div>

@@ -2,14 +2,12 @@ package com.urlshortener.url_shortener.repository;
 
 import com.urlshortener.url_shortener.entity.ShortUrl;
 import org.springframework.data.jpa.repository.JpaRepository;
-<<<<<<< Updated upstream
-=======
 import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
 import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
->>>>>>> Stashed changes
 
+import java.time.Instant;
 import java.util.List;
 import java.util.Optional;
 
@@ -24,9 +22,6 @@ public interface ShortUrlRepository extends
     boolean existsByShortCode(String shortCode);
 
     List<ShortUrl> findByUserId(Long userId);
-<<<<<<< Updated upstream
-}
-=======
 
     @Modifying(clearAutomatically = true, flushAutomatically = true)
     @Query("""
@@ -52,9 +47,5 @@ public interface ShortUrlRepository extends
               and u.active = true
               and (u.expiresAt is null or u.expiresAt > :now)
             """)
-    int recordClick(
-            @Param("id") Long id,
-            @Param("now") Instant now
-    );
+    int recordClick(@Param("id") Long id, @Param("now") Instant now);
 }
->>>>>>> Stashed changes

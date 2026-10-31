@@ -399,3 +399,109 @@
     }
   }
 }
+
+// Registration
+.register-page {
+  .illustration {
+    position: relative;
+    width: min(100%, 440px);
+    height: 340px;
+    margin-top: 24px;
+  }
+
+  .url-chip {
+    position: absolute;
+    z-index: 2;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 15px;
+    border: 1px solid #ffffffd9;
+    border-radius: 14px;
+    background: #fffaffb8;
+    box-shadow: 0 15px 35px #7859b326;
+    transform: rotate(-8deg);
+    white-space: nowrap;
+  }
+
+  .original {
+    top: 15px;
+    left: 0;
+    font-size: 11px;
+    color: #60537d;
+  }
+
+  .shortened {
+    top: 105px;
+    left: 46px;
+    font-size: 16px;
+  }
+
+  .chip-icon {
+    display: grid;
+    place-items: center;
+    width: 30px;
+    height: 30px;
+    border-radius: 9px;
+    background: linear-gradient(135deg, #5998ff, #8247ff);
+    color: white;
+    font-size: 23px;
+  }
+
+  .copy-icon {
+    color: #7934ff;
+    font-size: 24px;
+  }
+
+  .conversion-arrow {
+    position: absolute;
+    top: 66px;
+    left: 205px;
+    color: #a04cff;
+    font-size: 30px;
+  }
+
+  .chain {
+    position: absolute;
+    top: 140px;
+    left: 80px;
+    width: 260px;
+    height: 200px;
+    transform: rotate(-15deg);
+  }
+
+  .orbit {
+    position: absolute;
+    top: 130px;
+    width: 100%;
+    height: 150px;
+    border: 1px solid #a768e754;
+    border-radius: 50%;
+    transform: rotate(-20deg);
+  }
+
+  .platform {
+    position: absolute;
+    bottom: 0;
+    left: 100px;
+    width: 210px;
+    height: 30px;
+    border: 2px solid #d9bdff;
+    border-radius: 50%;
+    background: linear-gradient(#f9dcff, #8b78df);
+    box-shadow:
+      0 10px 0 #7963c4,
+      0 22px 35px #b47be86b;
+  }
+}
+
+.register-page {
+  .benefits {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 15px;
+    margin-top: 28px;
+    color: #665080;
+    font-size: 11px;
+  }
+}
