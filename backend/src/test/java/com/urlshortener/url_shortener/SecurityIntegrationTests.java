@@ -57,6 +57,14 @@ class SecurityIntegrationTests {
     }
 
     @Test
+    void logoutIsDocumentedInSwagger() throws Exception {
+        mvc.perform(get("/v3/api-docs"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.paths['/api/auth/logout'].post.operationId").value("logout"))
+                .andExpect(jsonPath("$.paths['/api/auth/logout'].post.responses['204']").exists());
+    }
+
+    @Test
     void swaggerInitializerIncludesTheSessionCsrfInterceptor() throws Exception {
         var result = mvc.perform(get("/swagger-ui/swagger-initializer.js"))
                 .andExpect(status().isOk()).andReturn();

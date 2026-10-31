@@ -16,6 +16,7 @@ Registration accepts passwords of at least 8 characters and at most 72 UTF-8 byt
 | GET | `/api/auth/me` | Logged-in user; returns `id`, `email`, `role`, `active` |
 | POST | `/api/auth/logout` | CSRF required; invalidates session; returns 204 |
 | GET | `/api/admin/users` | ADMIN; paginated account details |
+| GET | `/api/admin/test` | ADMIN; returns `{"message":"Admin access confirmed"}` |
 | GET | `/api/admin/urls` | ADMIN; paginated URLs, without nested user credentials |
 | PATCH | `/api/admin/users/{id}/status` | ADMIN + CSRF; JSON `{"active":false}` or `{"active":true}` |
 | GET | `/r/{code}` | Reserved public route; redirect implementation is future URL-management work |
