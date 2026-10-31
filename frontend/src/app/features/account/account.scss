@@ -1,0 +1,23 @@
+:host { display: block; }
+.account-content { width: min(100%, 680px); margin: 0 auto; }
+.details { display: flex; gap: 22px; align-items: center; }
+.avatar { width: 54px; height: 54px; display: grid; place-items: center; flex-shrink: 0; border-radius: 50%; background: #9b6aef24; border: 1px solid #a47aeb66; }
+.avatar svg { width: 28px; height: 28px; stroke: #c6a2ff; fill: none; stroke-width: 1.6; }
+dl { margin: 0; }
+dl > div { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; font-size: 12px; }
+dt { color: #9691ae; }
+dd { margin: 0; overflow-wrap: anywhere; }
+.details > div:last-child { min-width: 0; }
+.password-panel { margin-top: 20px; }
+.password-summary { display: flex; justify-content: space-between; align-items: center; gap: 16px; }
+.password-summary p { margin-bottom: 0; }
+.edit-password { width: 36px; height: 36px; flex-shrink: 0; display: grid; place-items: center; border: 1px solid #ad9dda44; border-radius: 8px; color: #d2b4ff; background: #9b6aef17; }
+.edit-password:hover { background: #9b6aef33; }
+.edit-password svg { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; }
+form { border-top: 1px solid #b4a4e629; margin-top: 22px; padding-top: 12px; }
+.field { margin-top: 20px; }
+.password-field { position: relative; }
+.password-field input { padding-right: 68px; }
+.password-field button { position: absolute; right: 6px; top: 5px; padding: 8px; border: 0; border-radius: 6px; color: #bca0ed; background: transparent; font-size: 11px; }
+.session-note { margin: 22px 0; }
+@media (max-width: 480px) { .details { gap: 14px; } .avatar { width: 40px; height: 40px; } }

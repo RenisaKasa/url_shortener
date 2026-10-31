@@ -65,4 +65,31 @@ describe('Session authentication', () => {
     http.expectOne('/api/auth/me').flush({}, { status: 401, statusText: 'Unauthorized' });
     expect(auth.user()).toBeNull();
   });
+
+  it('changes the password with CSRF and clears the ended session after 204', () => {
+    auth.restoreSession().subscribe();
+    http.expectOne('/api/auth/me').flush(account);
+    auth.changePassword({ currentPassword: ' old-password ', newPassword: ' new-password ' }).subscribe();
+    const token = http.expectOne('/api/auth/csrf');
+    expect(token.request.withCredentials).toBe(true);
+    token.flush(csrf);
+    const change = http.expectOne('/api/auth/password');
+    expect(change.request.method).toBe('PUT');
+    expect(change.request.withCredentials).toBe(true);
+    expect(change.request.headers.get(csrf.headerName)).toBe(csrf.token);
+    expect(change.request.body).toEqual({ currentPassword: ' old-password ', newPassword: ' new-password ' });
+    expect(auth.user()).toEqual(account);
+    change.flush(null, { status: 204, statusText: 'No Content' });
+    expect(auth.user()).toBeNull();
+  });
+
+  it('retains the current identity when a password change is rejected', () => {
+    auth.restoreSession().subscribe();
+    http.expectOne('/api/auth/me').flush(account);
+    auth.changePassword({ currentPassword: 'wrong-password', newPassword: 'new-password' })
+      .subscribe({ error: () => {} });
+    http.expectOne('/api/auth/csrf').flush(csrf);
+    http.expectOne('/api/auth/password').flush({}, { status: 400, statusText: 'Bad Request' });
+    expect(auth.user()).toEqual(account);
+  });
 });

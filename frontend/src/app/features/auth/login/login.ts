@@ -34,6 +34,12 @@ export class Login {
     password: ['', Validators.required],
   });
 
+  constructor() {
+    if (this.router.currentNavigation()?.extras.state?.['passwordChanged']) {
+      this.notice.set(this.text().account.passwordChanged);
+    }
+  }
+
   togglePassword(): void {
     this.showPassword.update((value) => !value);
   }
@@ -62,8 +68,8 @@ export class Login {
         finalize(() => this.loading.set(false)),
       )
       .subscribe({
-        next: () => {
-          this.router.navigate(['/dashboard']);
+        next: (user) => {
+          this.router.navigate([user.role === 'ADMIN' ? '/admin' : '/dashboard']);
         },
         error: (err) => {
           this.error.set(err.status >= 500

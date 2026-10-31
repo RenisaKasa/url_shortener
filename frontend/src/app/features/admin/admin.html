@@ -1,1 +1,166 @@
-<p>{{ text().placeholders.admin }}</p>
+<div class="workspace">
+  <aside class="sidebar">
+    <a class="brand" routerLink="/admin"><span aria-hidden="true">↗</span> {{ text().common.brand }}.</a>
+    <nav [attr.aria-label]="m.navigation">
+      <a routerLink="/admin" class="selected"><span aria-hidden="true">◈</span> {{ m.heading }}</a>
+      <a routerLink="/dashboard"><span aria-hidden="true">↗</span> {{ m.personalDashboard }}</a>
+    </nav>
+    <div class="account"><p>{{ auth.user()?.email }}</p><span>{{ m.workspace }}</span></div>
+    <button type="button" class="secondary" (click)="logout()" [disabled]="loggingOut() || busy()">
+      {{ loggingOut() ? m.loggingOut : m.logout }}
+    </button>
+  </aside>
+  <main>
+    <header class="page-header">
+      <h1>{{ m.heading }}</h1>
+      <div class="header-actions"><button type="button" class="secondary" (click)="refresh()" [disabled]="usersLoading() || urlsLoading() || busy()">{{ m.refresh }} ↻</button><a class="profile-link" routerLink="/account" [attr.aria-label]="text().account.openAccount" [title]="auth.user()?.email ?? text().account.openAccount"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="8" r="3.5"/><path d="M5 21v-2a7 7 0 0 1 14 0v2"/><circle cx="12" cy="12" r="10.5"/></svg></a></div>
+    </header>
+    <p class="page-description">{{ m.description }}</p>
+    @if (success()) { <p class="notice success" role="status">{{ success() }}</p> }
+    @if (actionError()) { <p class="notice error" role="alert">{{ actionError() }}</p> }
+    <div class="admin-tabs" [attr.aria-label]="m.sections">
+      <button type="button" [class.selected]="tab() === 'users'" [attr.aria-pressed]="tab() === 'users'" (click)="tab.set('users')">{{ m.usersTab }}</button>
+      <button type="button" [class.selected]="tab() === 'urls'" [attr.aria-pressed]="tab() === 'urls'" (click)="tab.set('urls')">{{ m.linksTab }}</button>
+    </div>
+    @if (tab() === 'users') {
+      <section class="panel" aria-labelledby="users-heading">
+        <div class="section-heading"><div><h2 id="users-heading">{{ m.users }}</h2><p class="muted">{{ m.usersDescription }}</p></div></div>
+        <div class="filters">
+          <div class="search"><label for="user-search">{{ m.search }}</label><input id="user-search" type="search" [formControl]="userSearch" [placeholder]="m.userSearchPlaceholder" maxlength="200" /></div>
+          <div><label for="account-status">{{ m.accountStatus }}</label>
+            <select id="account-status" #accountStatus [value]="usersQuery().active" (change)="setUserStatus(accountStatus.value)">
+              <option value="">{{ m.all }}</option><option value="true">{{ m.active }}</option><option value="false">{{ m.inactive }}</option>
+            </select>
+          </div>
+          <div><label for="role-filter">{{ m.role }}</label>
+            <select id="role-filter" #roleFilter [value]="usersQuery().role" (change)="setRole(roleFilter.value)">
+              <option value="">{{ m.all }}</option><option value="USER">{{ m.roles.USER }}</option><option value="ADMIN">{{ m.roles.ADMIN }}</option>
+            </select>
+          </div>
+          <div><label for="user-sort">{{ m.sort }}</label>
+            <select id="user-sort" #userSort [value]="usersQuery().sort" (change)="setUserSort(userSort.value)">
+              <option value="id,desc">{{ m.newestAccounts }}</option><option value="id,asc">{{ m.oldestAccounts }}</option>
+              <option value="email,asc">{{ m.emailAscending }}</option><option value="email,desc">{{ m.emailDescending }}</option>
+            </select>
+          </div>
+        </div>
+        <div [attr.aria-busy]="usersLoading()">
+          @if (usersLoading() && !users()) { <p class="empty" role="status">{{ m.loadingUsers }}</p> }
+          @else if (usersError()) {
+            <div class="notice error" role="alert">{{ usersError() }}<button type="button" class="text-button" (click)="refresh()">{{ m.retry }}</button></div>
+          } @else if (users(); as page) {
+            @if (page.content.length === 0) { <p class="empty">{{ m.noUsers }}</p> } @else {
+              <div class="table-wrap" [class.refreshing]="tab() === 'users' ? usersLoading() : urlsLoading()"><table>
+                <thead><tr><th scope="col">{{ m.id }}</th><th scope="col">{{ m.email }}</th><th scope="col">{{ m.role }}</th><th scope="col">{{ m.accountStatus }}</th><th scope="col">{{ m.actions }}</th></tr></thead>
+                <tbody>
+                  @for (user of page.content; track user.id) {
+                    <tr><td>#{{ user.id }}</td><td class="email-cell">{{ user.email }}</td><td>{{ m.roles[user.role] }}</td>
+                      <td><span [class]="user.active ? 'badge ACTIVE' : 'badge INACTIVE'">{{ user.active ? m.active : m.inactive }}</span></td>
+                      <td><div class="row-actions">
+                        <button type="button" class="text-button" (click)="viewUserLinks(user)">{{ m.viewLinks }}</button>
+                        @if (user.id === auth.user()?.id) { <span class="self-label">{{ m.yourAccount }}</span> } @else {
+                          <button type="button" class="text-button" [class.danger-text]="user.active" (click)="requestStatusChange(user)" [disabled]="busy()">{{ user.active ? m.deactivate : m.activate }}</button>
+                        }
+                      </div></td>
+                    </tr>
+                  }
+                </tbody>
+              </table></div>
+            }
+          }
+        </div>
+      </section>
+    } @else {
+      <section class="panel" aria-labelledby="urls-heading">
+        <div class="section-heading" [class.user-context]="!!selectedUser()">
+          <div>
+            @if (selectedUser(); as user) {
+              <h2 id="urls-heading">{{ copy.format(m.userLinksHeading, { email: user.email }) }}</h2>
+              <p class="muted">{{ copy.format(m.userLinksDescription, { id: user.id }) }}</p>
+            } @else {
+              <h2 id="urls-heading">{{ m.links }}</h2><p class="muted">{{ m.linksDescription }}</p>
+            }
+          </div>
+          @if (selectedUser()) {
+            <div class="context-actions"><button type="button" class="secondary" (click)="clearOwner()">{{ m.showAllLinks }}</button><button type="button" class="text-button" (click)="tab.set('users')">← {{ m.backToUsers }}</button></div>
+          }
+        </div>
+        <div class="filters">
+          <div class="search">
+            <label for="url-search">{{ m.search }}</label>
+            <div class="link-search">
+              @if (selectedUser(); as user) {
+                <span class="user-filter-chip">
+                  <span class="chip-email" [title]="user.email">{{ user.email }}</span>
+                  <button type="button" (click)="clearOwner()" [attr.aria-label]="copy.format(m.removeUserFilter, { email: user.email })" [title]="m.showAllLinks"><span aria-hidden="true">×</span></button>
+                </span>
+              }
+              <input #urlSearchInput id="url-search" type="search" [formControl]="urlSearch" [placeholder]="m.urlSearchPlaceholder" maxlength="200" />
+            </div>
+          </div>
+          <div><label for="url-status">{{ m.linkStatus }}</label>
+            <select id="url-status" #urlStatus [value]="urlsQuery().status" (change)="setUrlStatus(urlStatus.value)">
+              <option value="">{{ m.all }}</option><option value="ACTIVE">{{ m.status.ACTIVE }}</option><option value="INACTIVE">{{ m.status.INACTIVE }}</option><option value="EXPIRED">{{ m.status.EXPIRED }}</option>
+            </select>
+          </div>
+          <div><label for="url-sort">{{ m.sort }}</label>
+            <select id="url-sort" #urlSort [value]="urlsQuery().sort" (change)="setUrlSort(urlSort.value)">
+              <option value="createdAt,desc">{{ m.newestLinks }}</option><option value="createdAt,asc">{{ m.oldestLinks }}</option>
+              <option value="clickCount,desc">{{ m.mostClicked }}</option><option value="expiresAt,asc">{{ m.expiringFirst }}</option>
+            </select>
+          </div>
+        </div>
+        <div [attr.aria-busy]="urlsLoading()">
+          @if (urlsLoading() && !urls()) { <p class="empty" role="status">{{ m.loadingLinks }}</p> }
+          @else if (urlsError()) {
+            <div class="notice error" role="alert">{{ urlsError() }}<button type="button" class="text-button" (click)="refresh()">{{ m.retry }}</button></div>
+          } @else if (urls(); as page) {
+            @if (page.content.length === 0) { <p class="empty">{{ m.noLinks }}</p> } @else {
+              <div class="table-wrap" [class.refreshing]="tab() === 'users' ? usersLoading() : urlsLoading()"><table>
+                <thead><tr><th scope="col">{{ m.destination }}</th><th scope="col">{{ m.ownerId }}</th><th scope="col">{{ m.linkStatus }}</th><th scope="col">{{ m.clicks }}</th><th scope="col">{{ m.expires }}</th><th scope="col">{{ m.lastAccessed }}</th><th scope="col">{{ m.actions }}</th></tr></thead>
+                <tbody>
+                  @for (link of page.content; track link.id) {
+                    <tr>
+                      <td class="destination"><a [href]="shortUrl(link)" target="_blank" rel="noopener noreferrer">{{ shortUrl(link) }}</a><span [title]="link.originalUrl">{{ link.originalUrl }}</span></td>
+                      <td>#{{ link.userId }}</td><td><span [class]="'badge ' + status(link)">{{ m.status[status(link)] }}</span></td>
+                      <td>{{ link.clickCount | number }}</td><td>{{ link.expiresAt ? (link.expiresAt | date:'medium') : m.noExpiry }}</td>
+                      <td>{{ link.lastAccessedAt ? (link.lastAccessedAt | date:'medium') : m.never }}</td>
+                      <td><button type="button" class="text-button" (click)="copyLink(link)">{{ m.copy }}</button></td>
+                    </tr>
+                  }
+                </tbody>
+              </table></div>
+            }
+          }
+        </div>
+      </section>
+    }
+    @if (tab() === 'users' ? !usersLoading() && !usersError() : !urlsLoading() && !urlsError()) {
+      @if (tab() === 'users' ? users() : urls(); as page) {
+        <div class="pagination">
+          <p class="muted">{{ copy.format(m.resultCount, { count: page.totalElements }) }}</p>
+          <div class="page-controls">
+            <label for="page-size">{{ m.perPage }}</label>
+            <select id="page-size" #pageSize [value]="tab() === 'users' ? usersQuery().size : urlsQuery().size" (change)="setPageSize(pageSize.value)">
+              <option value="10">10</option><option value="20">20</option><option value="50">50</option>
+            </select>
+            @if (page.totalPages > 0) {
+              <button type="button" class="secondary" (click)="changePage(-1)" [disabled]="page.first || (tab() === 'users' ? usersLoading() : urlsLoading())" [attr.aria-label]="m.previous">←</button>
+              <span class="muted">{{ copy.format(m.pageLabel, { page: page.number + 1, pages: page.totalPages }) }}</span>
+              <button type="button" class="secondary" (click)="changePage(1)" [disabled]="page.last || (tab() === 'users' ? usersLoading() : urlsLoading())" [attr.aria-label]="m.next">→</button>
+            }
+          </div>
+        </div>
+      }
+    }
+  </main>
+</div>
+<dialog #statusDialog class="panel modal workspace-modal" aria-labelledby="status-title" (cancel)="closeStatusDialog($event)">
+  <h2 id="status-title">{{ target()?.active ? m.deactivateHeading : m.activateHeading }}</h2>
+  <p class="muted">{{ copy.format(target()?.active ? m.deactivateDescription : m.activateDescription, { email: target()?.email ?? '' }) }}</p>
+  @if (actionError()) { <p class="notice error" role="alert">{{ actionError() }}</p> }
+  <div class="dialog-actions">
+    <button type="button" class="secondary" (click)="closeStatusDialog()" [disabled]="busy()">{{ m.cancel }}</button>
+    <button type="button" [class]="target()?.active ? 'danger' : 'primary'" (click)="confirmStatusChange()" [disabled]="busy()">{{ busy() ? m.saving : target()?.active ? m.deactivate : m.activate }}</button>
+  </div>
+</dialog>
