@@ -70,6 +70,30 @@ class UrlManagementIntegrationTests {
     }
 
     @Test
+    void browserGetsFriendlyUnavailablePagesWithoutRecordingClicks() throws Exception {
+        for (String code : new String[]{"beta", "old"}) {
+            mvc.perform(get("/r/{code}", code).accept(MediaType.TEXT_HTML))
+                    .andExpect(status().isGone())
+                    .andExpect(content().contentTypeCompatibleWith(MediaType.TEXT_HTML))
+                    .andExpect(content().string(org.hamcrest.Matchers.containsString("This link is no longer active.")))
+                    .andExpect(header().string("Cache-Control", "no-store"))
+                    .andExpect(result -> assertThat(result.getResponse().getHeaders("Vary")).contains("Accept"));
+        }
+        assertThat(urls.findById(inactive.getId()).orElseThrow().getClickCount()).isEqualTo(3);
+        assertThat(urls.findById(expired.getId()).orElseThrow().getClickCount()).isEqualTo(5);
+        mvc.perform(get("/r/missing").accept(MediaType.TEXT_HTML))
+                .andExpect(status().isNotFound())
+                .andExpect(content().contentTypeCompatibleWith(MediaType.TEXT_HTML))
+                .andExpect(content().string(org.hamcrest.Matchers.containsString("We could not find this link.")));
+        mvc.perform(get("/r/beta").accept(MediaType.APPLICATION_JSON))
+                .andExpect(status().isGone())
+                .andExpect(jsonPath("$.status").value(410));
+        mvc.perform(get("/r/alpha").accept(MediaType.TEXT_HTML))
+                .andExpect(status().isFound())
+                .andExpect(header().exists("Location"));
+    }
+
+    @Test
     void listIsOwnerScopedPaginatedAndSorted() throws Exception {
         mvc.perform(get("/api/urls")
                         .with(as(owner))

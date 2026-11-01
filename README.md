@@ -1,43 +1,72 @@
 # URL Shortener
 
-A single Git repository containing a Spring Boot API and an Angular application.
+A URL shortening and management application built with Spring Boot and Angular.
+Users can create short links, manage their availability and expiration, and view
+click statistics. Administrators can manage user accounts and view all links.
 
-```text
-backend/       Spring Boot, Maven, JPA, MySQL and security tests
-frontend/      Angular application and development proxy
-SECURITY.md    Authentication endpoints and frontend security contract
+## Features
+
+- Registration, login and logout with session authentication and CSRF protection.
+- Short links with optional custom aliases and public redirects.
+- URL search, status filtering, sorting and pagination.
+- Link activation, deactivation, expiration updates and deletion.
+- Automatic deactivation of expired links.
+- Click counts, last-access timestamps and a personal statistics dashboard.
+- Administrator access to user accounts and all shortened URLs.
+
+## Requirements
+
+- Java 17 or 21
+- MySQL
+- Node.js 22.12 or later in the Node 22 release line, with npm
+
+The backend uses Spring Boot 3.5 and Maven; the frontend uses Angular 21.
+A Maven wrapper is included in `backend/`.
+
+## Run locally
+
+The commands below use PowerShell and assume you have cloned the repository.
+
+### 1. Create the database
+
+Run the following in MySQL:
+
+```sql
+CREATE DATABASE url_shortener;
 ```
 
-## Prerequisites
+The default connection is `localhost:3306`, database `url_shortener`, user `root`.
+If your connection differs, update `spring.datasource.url` and
+`spring.datasource.username` in `backend/src/main/resources/application.properties`.
+Hibernate creates and updates the tables when the application starts.
 
-- JDK 17 or 21 and Maven (the assignment requires one of these Java versions).
-- Node.js 22.12 or newer in the Node 22 line, and npm, for Angular 21.
-- MySQL on localhost:3306, with a database named `url_shortener`.
+### 2. Configure and start the backend
 
-## Backend
+From the repository root:
 
-For a fresh checkout, copy `backend/.env.example` to `backend/.env` and set
-`DB_PASSWORD`. An existing local `.env` has already been moved with the backend.
-Never put database credentials in Angular code.
+```powershell
+Copy-Item backend/.env.example backend/.env
+```
 
-Run in the first terminal:
+Set your MySQL password in `backend/.env`:
+
+```properties
+DB_PASSWORD=your-mysql-password
+```
+
+Then start the API:
 
 ```powershell
 cd backend
-mvn spring-boot:run
+.\mvnw.cmd spring-boot:run
 ```
 
-The API listens on http://localhost:8081. Swagger is available at
-http://localhost:8081/swagger-ui/index.html. Configuration loads `backend/.env`
-when launched from the monorepo root, or `.env` when launched inside `backend/`.
+The API runs at [http://localhost:8081](http://localhost:8081).
+Keep this terminal open while using the application.
 
-In IntelliJ, import `backend/pom.xml` as a Maven project. Set the Spring Boot
-run configuration's working directory to `$PROJECT_DIR$/backend` when opening
-the monorepo root, or to the backend directory's absolute path.
+### 3. Start the frontend
 
-## Frontend
-
-Run in a second terminal, starting from the repository root:
+In a second terminal, from the repository root:
 
 ```powershell
 cd frontend
@@ -45,36 +74,102 @@ npm ci
 npm start
 ```
 
-Open http://localhost:4200. `npm start` enables `proxy.conf.json`, forwarding
-`/api/**` and `/r/**` to Spring Boot on port 8081. Angular code should call
-relative URLs such as `/api/auth/me`; do not hardcode port 8081 into services.
-The browser uses the frontend origin and the proxy forwards session cookies.
+Open [http://localhost:4200](http://localhost:4200) and register an account.
+New accounts receive the `USER` role. After logging in, create a short link,
+copy it and open it in another tab. The dashboard provides link management and
+usage statistics.
 
-The scaffold includes routing. Login/register pages, route guards, the CSRF
-interceptor and URL-management screens are future application work. See
-[SECURITY.md](SECURITY.md) for the backend contract and CSRF token lifecycle.
+The development server forwards `/api` and `/r` requests to the backend.
+Both servers must be running.
 
-The development proxy only runs with `ng serve`. In production, serve the Angular
-build and reverse-proxy `/api` and `/r` to Spring Boot under the same site.
+### 4. Create an administrator (optional)
 
-## Verification
+Add `ADMIN_EMAIL` and `ADMIN_PASSWORD` to `backend/.env`, using an email that
+does not already belong to a regular user. The password must contain at least
+8 characters and use at most 72 UTF-8 bytes.
+
+Stop the backend, then run this from `backend/`:
+
+```powershell
+.\mvnw.cmd spring-boot:run "-Dspring-boot.run.profiles=bootstrap-admin"
+```
+
+After the administrator is created, stop the application and start it normally:
+
+```powershell
+.\mvnw.cmd spring-boot:run
+```
+
+Remove the bootstrap credentials from `.env` when finished. Log in through the
+frontend with the administrator account to access user and link management.
+An existing administrator is left unchanged by the bootstrap process.
+
+## Link expiration
+
+Links expire after 30 days by default. Users may choose a future expiration
+when creating a link or change it later. Disabled and expired links do not
+redirect visitors. Expired links are retained with their statistics and are
+deactivated by a background task that runs every minute.
+
+The defaults are configured in `backend/src/main/resources/application.properties`:
+
+```properties
+app.urls.default-lifetime=P30D
+app.urls.expiration.enabled=true
+app.urls.expiration.check-interval=PT1M
+app.urls.expiration.initial-delay=PT1M
+```
+
+Durations use ISO 8601 notation: `P30D` is 30 days and `PT1M` is one minute.
+Redirects check expiration immediately, independently of the background task.
+
+## API documentation
+
+With the backend running, open
+[Swagger UI](http://localhost:8081/swagger-ui/index.html).
+
+| Path | Purpose |
+| --- | --- |
+| `/api/auth` | Registration, login, logout, current account, password changes and CSRF tokens |
+| `/api/urls` | Create, list and manage the authenticated user's links |
+| `/api/dashboard/statistics` | Statistics for the authenticated user's links |
+| `/api/admin` | Administrator user and link management |
+| `/r/{code}` | Public redirect to the original URL |
+
+Authentication uses a session cookie. Swagger obtains CSRF tokens for write
+requests automatically; log in through `/api/auth/login` before testing
+protected endpoints. See [SECURITY.md](SECURITY.md) for authentication details.
+
+## Tests and builds
 
 From `backend/`:
 
 ```powershell
-mvn verify
+.\mvnw.cmd verify
 ```
 
-Tests use H2 rather than your local MySQL database. JaCoCo enforces 80% overall
-line coverage and writes `backend/target/site/jacoco/index.html`.
+Backend tests use H2 and do not require a running MySQL instance. Verification
+includes an 80% overall backend line-coverage check. The coverage report is
+generated at `backend/target/site/jacoco/index.html`, along with the application
+JAR in `backend/target/`.
 
 From `frontend/`:
 
 ```powershell
-npm run build
 npm test -- --watch=false
+npm run build
 ```
 
-Commit source files and `frontend/package-lock.json`. Git ignores local `.env`
-files, `node_modules/`, Maven `target/`, Angular `dist/` and `.angular/` output.
-There is only one `.git` directory, at the repository root.
+The frontend build is generated in `frontend/dist/frontend/browser/`.
+For deployment, serve the frontend and proxy `/api` and `/r` to the backend
+under the same site. The Angular development proxy is only available with
+`npm start`. Enable `SESSION_COOKIE_SECURE=true` when serving over HTTPS.
+
+## Repository structure
+
+```text
+backend/       Spring Boot API, database access and backend tests
+frontend/      Angular application and frontend tests
+```
+
+Local `.env` files, dependencies and generated build files are excluded from Git.
