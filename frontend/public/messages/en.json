@@ -36,7 +36,42 @@
     "navigationLabel": "Main navigation",
     "features": "Features",
     "about": "About Linkly",
-    "aboutNotice": "Linkly helps you shorten, organize, and track your links. Your links, with more possibilities.",
+    "featureSection": {
+      "heading": "Everything your links need.",
+      "description": "Create a shorter link, stay in control, and see how it performs.",
+      "cards": {
+        "shorten": {
+          "title": "Shorten & personalize",
+          "description": "Turn a long URL into a unique short link. Choose an available custom alias to make it memorable."
+        },
+        "organize": {
+          "title": "Find & organize",
+          "description": "Keep your links in one workspace. Search destinations or short codes, filter by status, and sort your list."
+        },
+        "expiration": {
+          "title": "Control your links",
+          "description": "Set or update an expiration date, activate or deactivate a link, or delete it. Expired links stop redirecting automatically."
+        },
+        "statistics": {
+          "title": "Follow the clicks",
+          "description": "See click counts and last access times for each link, plus totals for your links, active links, expired links, and clicks."
+        }
+      }
+    },
+    "aboutSection": {
+      "close": "Close About Linkly",
+      "description": "Linkly is a URL shortening and management application. It brings short links, expiration controls, and basic usage statistics into one workspace.",
+      "howHeading": "How it works",
+      "stepRegister": "Create an account and log in.",
+      "stepCreate": "Paste a destination URL and optionally choose a custom alias or expiration date.",
+      "stepShare": "Share your short link. Opening an active, unexpired link redirects visitors to its destination.",
+      "stepTrack": "Return to your dashboard to manage links and review their clicks.",
+      "rolesHeading": "A workspace for each role",
+      "userTitle": "Users",
+      "userDescription": "create and manage their own links and view their statistics.",
+      "adminTitle": "Administrators",
+      "adminDescription": "review registered accounts, activate or deactivate accounts, and view links across all users."
+    },
     "headline": "Shorten links.",
     "headlineAccent": "Unlock",
     "headlineEnding": "possibilities.",

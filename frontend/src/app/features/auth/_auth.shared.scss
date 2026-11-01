@@ -505,3 +505,25 @@
     font-size: 11px;
   }
 }
+
+// Login information sections
+.login-page {
+.features-section { width: min(1240px, calc(100% - 40px)); margin: 0 auto 36px; padding: 24px 0; scroll-margin-top: 20px; }
+.features-section h2 { font-size: 28px; }
+.features-section > p, .feature-card p, .about-dialog p, .about-dialog li { color: #c7cbe2; font-size: 14px; line-height: 1.7; }
+.feature-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; margin-top: 24px; }
+.feature-card { padding: 22px; border: 1px solid #bac1ff35; border-radius: 16px; background: linear-gradient(140deg, #9695de20, #626cb315); }
+.feature-number { color: #ba99ff; font-size: 12px; }
+.feature-card h3, .about-dialog h3 { font-size: 16px; margin: 16px 0 8px; }
+.feature-card p { margin: 0; }
+.about-dialog { width: min(560px, calc(100% - 32px)); max-height: calc(100dvh - 40px); padding: 32px; border: 1px solid #a68ae875; border-radius: 20px; background: linear-gradient(140deg, #222044, #101830); color: #f5f2ff; box-shadow: 0 24px 80px #03071d99; }
+.about-dialog::backdrop { background: #030719bd; backdrop-filter: blur(6px); }
+.about-dialog h2 { padding-right: 25px; font-size: 28px; }
+.about-dialog ol { padding-left: 22px; }
+.about-dialog li { padding-left: 4px; margin-bottom: 8px; }
+.about-dialog strong { color: #e0ccff; }
+.close-about { position: absolute; top: 12px; right: 12px; width: 36px; height: 36px; border: 0; border-radius: 8px; background: #ffffff0d; font-size: 24px; }
+.about-signup { display: inline-block; margin-top: 8px; padding: 12px 20px; border-radius: 10px; background: linear-gradient(105deg, #8532ed, #4366ef); }
+@media (max-width: 1000px) { .feature-grid { grid-template-columns: repeat(2, 1fr); } }
+@media (max-width: 540px) { .feature-grid { grid-template-columns: 1fr; } .about-dialog { padding: 28px 22px; } }
+}

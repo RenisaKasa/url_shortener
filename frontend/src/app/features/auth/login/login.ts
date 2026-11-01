@@ -19,6 +19,7 @@ export class Login {
   readonly copy = inject(MessagesService);
   readonly text = this.copy.text;
   readonly year = new Date().getFullYear();
+  readonly featureKeys = ['shorten', 'organize', 'expiration', 'statistics'] as const;
   private readonly fb = inject(FormBuilder);
   private readonly authService = inject(AuthService);
   private readonly router = inject(Router);
@@ -42,6 +43,14 @@ export class Login {
 
   togglePassword(): void {
     this.showPassword.update((value) => !value);
+  }
+
+  scrollToFeatures(section: HTMLElement): void {
+    section.scrollIntoView({
+      behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'instant' : 'smooth',
+      block: 'start',
+    });
+    section.focus({ preventScroll: true });
   }
 
   onSubmit(): void {
