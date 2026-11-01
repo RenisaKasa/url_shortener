@@ -1,7 +1,7 @@
 <div class="login-page">
   <header class="header">
     <a class="brand" routerLink="/login" aria-label="{{ text().common.homeLabel }}"><svg viewBox="0 0 32 32" aria-hidden="true"><path d="m12 20 8-8m-9 10-2 2a6 6 0 0 1-8-8l6-6a6 6 0 0 1 8 0m2 0 2-2a6 6 0 0 1 8 8l-6 6a6 6 0 0 1-8 0" transform="translate(2 -2)"/></svg>{{ text().common.brand }}<span class="brand-dot">.</span></a>
-    <nav aria-label="{{ text().login.navigationLabel }}"><a href="#features">{{ text().login.features }}</a><button type="button" (click)="notice.set(text().login.aboutNotice)">{{ text().login.about }} <span aria-hidden="true">↗</span></button></nav>
+    <nav aria-label="{{ text().login.navigationLabel }}"><button type="button" (click)="scrollToFeatures(features)">{{ text().login.features }}</button><button type="button" (click)="aboutDialog.showModal()" aria-haspopup="dialog">{{ text().login.about }} <span aria-hidden="true">↗</span></button></nav>
   </header>
   <main class="login-layout">
     <section class="hero" aria-labelledby="hero-title">
@@ -54,10 +54,39 @@
       @if (notice()) { <div class="notice" role="status">{{ notice() }}<button type="button" aria-label="{{ text().login.dismissMessage }}" (click)="notice.set('')">×</button></div> }
     </section>
   </main>
-  <footer id="features">
+  <section #features id="features" class="features-section" aria-labelledby="features-title" tabindex="-1">
+    <h2 id="features-title">{{ text().login.featureSection.heading }}</h2>
+    <p>{{ text().login.featureSection.description }}</p>
+    <div class="feature-grid">
+      @for (key of featureKeys; track key) {
+        <article class="feature-card">
+          <span class="feature-number" aria-hidden="true">0{{ $index + 1 }}</span>
+          <h3>{{ text().login.featureSection.cards[key].title }}</h3>
+          <p>{{ text().login.featureSection.cards[key].description }}</p>
+        </article>
+      }
+    </div>
+  </section>
+  <footer>
     <div class="feature"><span class="feature-icon">ϟ</span><div><strong>{{ text().login.fastTitle }}</strong><p>{{ text().login.fastDescription }}</p></div></div>
     <div class="feature"><span class="feature-icon">▥</span><div><strong>{{ text().login.trackTitle }}</strong><p>{{ text().login.trackDescription }}</p></div></div>
     <div class="feature"><span class="feature-icon">♢</span><div><strong>{{ text().login.secureTitle }}</strong><p>{{ text().login.secureDescription }}</p></div></div>
     <div class="footer-note">{{ text().common.footerTagline }}<span>{{ copy.format(text().common.copyright, { year: year }) }}</span></div>
   </footer>
+  <dialog #aboutDialog class="about-dialog" aria-labelledby="about-title" (click)="$event.target === aboutDialog && aboutDialog.close()">
+    <button class="close-about" type="button" autofocus (click)="aboutDialog.close()" [attr.aria-label]="text().login.aboutSection.close">×</button>
+    <h2 id="about-title">{{ text().login.about }}</h2>
+    <p>{{ text().login.aboutSection.description }}</p>
+    <h3>{{ text().login.aboutSection.howHeading }}</h3>
+    <ol>
+      <li>{{ text().login.aboutSection.stepRegister }}</li>
+      <li>{{ text().login.aboutSection.stepCreate }}</li>
+      <li>{{ text().login.aboutSection.stepShare }}</li>
+      <li>{{ text().login.aboutSection.stepTrack }}</li>
+    </ol>
+    <h3>{{ text().login.aboutSection.rolesHeading }}</h3>
+    <p><strong>{{ text().login.aboutSection.userTitle }}</strong> {{ text().login.aboutSection.userDescription }}</p>
+    <p><strong>{{ text().login.aboutSection.adminTitle }}</strong> {{ text().login.aboutSection.adminDescription }}</p>
+    <a class="about-signup" routerLink="/register">{{ text().common.signup }} <span aria-hidden="true">→</span></a>
+  </dialog>
 </div>

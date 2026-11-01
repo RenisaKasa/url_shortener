@@ -1,0 +1,36 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="robots" content="noindex">
+  <title>{{title}} | {{brand}}</title>
+  <style>
+    * { box-sizing: border-box; }
+    body { margin: 0; min-height: 100dvh; display: grid; place-items: center; padding: 24px; font-family: system-ui, sans-serif; color: #f5f2ff; background: radial-gradient(ellipse at 15% 20%, #5f2e8540, transparent 55%), radial-gradient(ellipse at 90% 80%, #2852bc30, transparent 55%), #090e25; }
+    main { width: min(100%, 540px); padding: 40px; border: 1px solid #b5a0f940; border-radius: 24px; background: linear-gradient(140deg, #9992df20, #616daf12); box-shadow: 0 24px 80px #03071d66; }
+    .brand { margin: 0 0 36px; color: #b99aff; font-size: 24px; font-weight: 750; }
+    .icon { display: grid; place-items: center; width: 60px; height: 60px; margin-bottom: 24px; border: 1px solid #b592ff60; border-radius: 18px; background: #9855ff20; color: #c6acff; }
+    svg { width: 30px; height: 30px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; }
+    .status { color: #b7a2e0; font-size: 12px; letter-spacing: 2px; }
+    h1 { margin: 12px 0 18px; font-size: clamp(28px, 5vw, 36px); line-height: 1.2; letter-spacing: -1px; }
+    p { color: #c7cbe2; font-size: 15px; line-height: 1.7; }
+    .hint { color: #a9abc5; font-size: 14px; }
+    a { display: inline-block; margin-top: 20px; padding: 13px 22px; border-radius: 10px; background: linear-gradient(105deg, #9233ef, #4667ef); color: white; text-decoration: none; font-weight: 600; }
+    a:hover { filter: brightness(1.15); }
+    a:focus-visible { outline: 2px solid #bca7ff; outline-offset: 5px; }
+    @media (max-width: 420px) { body { padding: 16px; } main { padding: 28px 24px; } }
+  </style>
+</head>
+<body>
+  <main aria-labelledby="title">
+    <div class="brand">{{brand}}.</div>
+    <div class="icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="m9 15 6-6M7 16l-1 1a4 4 0 0 1-6-6l4-4a4 4 0 0 1 6 0m4 10a4 4 0 0 0 6 0l4-4a4 4 0 0 0-6-6l-1 1" transform="translate(1 0) scale(.9)"/><path d="m3 3 18 18"/></svg></div>
+    <div class="status">{{status}}</div>
+    <h1 id="title">{{title}}</h1>
+    <p>{{description}}</p>
+    <p class="hint">{{hint}}</p>
+    <a href="/">{{home}} <span aria-hidden="true">→</span></a>
+  </main>
+</body>
+</html>
