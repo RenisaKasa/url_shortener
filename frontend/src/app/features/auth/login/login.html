@@ -43,13 +43,6 @@
         @if (error()) { <p class="error-message" role="alert">{{ error() }}</p> }
         <button class="submit" type="submit" [disabled]="loading()">@if (loading()) { <span class="spinner" aria-hidden="true"></span> {{ text().login.submitting }} } @else { {{ text().common.login }} <span aria-hidden="true">→</span> }</button>
       </form>
-      <div class="divider"><span></span>{{ text().login.socialDivider }}<span></span></div>
-      <div class="socials" aria-label="{{ text().login.socialComingSoon }}">
-        <button type="button" disabled aria-label="{{ text().login.googleLabel }}"><span class="google">G</span></button>
-        <button type="button" disabled aria-label="{{ text().login.appleLabel }}"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M16 2c.2 2-1.3 4-3.5 4 .1-2 1.5-3.7 3.5-4ZM19 17c-.8 2-2 4-3.5 4-1 0-1.5-.6-3-.6S10.4 21 9.5 21C7 21 4 16.2 4 12.5 4 9 6 7 8.5 7 10 7 11 8 12 8s2.2-1 3.7-1c1.7 0 3 .7 3.8 2-3.5 1.8-3.5 5.7-.5 8Z"/></svg></button>
-        <button type="button" disabled aria-label="{{ text().login.githubLabel }}"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2a10 10 0 0 0-3.2 19.5v-2.8c-2.6.6-3.2-1.1-3.2-1.1-.4-1-1-1.3-1-1.3-.9-.7.1-.7.1-.7 1 0 1.5 1 1.5 1 .9 1.5 2.2 1.1 2.7.8.1-.7.4-1.1.7-1.4-2.1-.3-4.4-1.1-4.4-5A4 4 0 0 1 6.3 8.3c-.1-.3-.5-1.4.1-2.8 0 0 .9-.3 2.8 1a10 10 0 0 1 5.6 0c1.9-1.3 2.8-1 2.8-1 .6 1.4.2 2.5.1 2.8a4 4 0 0 1 1.1 2.8c0 3.9-2.3 4.7-4.5 5 .4.3.7 1 .7 1.9v3.5A10 10 0 0 0 12 2Z"/></svg></button>
-      </div>
-      <p class="coming-soon">{{ text().login.socialComingSoon }}</p>
       <p class="signup">{{ text().login.noAccount }} <a routerLink="/register">{{ text().common.signup }} <span aria-hidden="true">↗</span></a></p>
       @if (notice()) { <div class="notice" role="status">{{ notice() }}<button type="button" aria-label="{{ text().login.dismissMessage }}" (click)="notice.set('')">×</button></div> }
     </section>

@@ -49,7 +49,6 @@ export class AuthService {
           { headers: { [csrf.headerName]: csrf.token }, withCredentials: true },
         ),
       ),
-      // Successful login rotates the session and clears its CSRF token.
       switchMap((user) =>
         this.http.get<CsrfToken>(`${this.apiUrl}/csrf`, { withCredentials: true }).pipe(
           tap(() => this.identity.set(user)),
@@ -69,7 +68,6 @@ export class AuthService {
         withCredentials: true,
         headers: { [csrf.headerName]: csrf.token },
       })),
-      // The backend ends this session and revokes the account's other sessions.
       tap(() => this.identity.set(null)),
     );
   }
