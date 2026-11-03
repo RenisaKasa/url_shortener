@@ -15,7 +15,7 @@
     <header class="page-header" #dashboardHeader>
       <h1 id="workspace-title" tabindex="-1">{{ m.heading }}</h1>
       <div class="header-actions">
-        <button type="button" class="secondary" (click)="refresh()" [disabled]="statisticsLoading() || listLoading() || !!busy()">{{ m.refresh }} <span aria-hidden="true">↻</span></button>
+        <button type="button" class="secondary" (click)="refresh()" [disabled]="statisticsLoading() || listLoading() || topLinksLoading() || !!busy()">{{ m.refresh }} <span aria-hidden="true">↻</span></button>
         <a class="profile-link" routerLink="/account" [attr.aria-label]="text().account.openAccount" [title]="auth.user()?.email ?? text().account.openAccount">
           <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="8" r="3.5"/><path d="M5 21v-2a7 7 0 0 1 14 0v2"/><circle cx="12" cy="12" r="10.5"/></svg>
         </a>
@@ -49,7 +49,13 @@
             <p class="field-error" id="alias-error">{{ fieldError(createForm.controls.customAlias, 'alias') }}</p>
           </div>
           <div><label for="create-expiration">{{ m.expiration }}</label>
-            <input id="create-expiration" type="datetime-local" formControlName="expiresAt" [readOnly]="!!busy()" aria-describedby="expiration-error" [attr.aria-invalid]="createForm.controls.expiresAt.touched && createForm.controls.expiresAt.invalid" />
+            <input id="create-expiration" type="datetime-local" formControlName="expiresAt" (input)="createPreset.set(null)" [readOnly]="!!busy()" aria-describedby="expiration-error expiration-presets-help" [attr.aria-invalid]="createForm.controls.expiresAt.touched && createForm.controls.expiresAt.invalid" />
+            <div class="expiration-presets" role="group" [attr.aria-label]="m.expirationPresets">
+              @for (days of presetDays; track days) {
+                <button type="button" (click)="setExpirationPreset('create', days)" [class.chosen]="createPreset() === days" [attr.aria-pressed]="createPreset() === days" [disabled]="!!busy()">{{ days === 1 ? m.expirationOneDay : copy.format(m.expirationDays, { days: days }) }}</button>
+              }
+            </div>
+            <p class="preset-help" id="expiration-presets-help">{{ m.expirationPresetsHelp }}</p>
             <p class="field-error" id="expiration-error">{{ fieldError(createForm.controls.expiresAt, 'date') }}</p>
           </div>
         </div>
@@ -57,7 +63,27 @@
         @if (createError()) { <p class="notice error" role="alert">{{ createError() }}</p> }
       </form>
       @if (created(); as link) {
-        <div class="created-link"><div><span class="muted">{{ m.readyToShare }}</span><a [href]="link.shortUrl" target="_blank" rel="noopener noreferrer">{{ link.shortUrl }}</a></div><button type="button" class="secondary" (click)="copyLink(link.shortUrl)">{{ m.copy }}</button></div>
+        <div class="created-link"><div><span class="muted">{{ m.readyToShare }}</span><a [href]="link.shortUrl" target="_blank" rel="noopener noreferrer">{{ link.shortUrl }}</a></div><div class="share-actions"><button type="button" class="secondary" (click)="copyLink(link.shortUrl)">{{ m.copy }}</button><button type="button" class="secondary" (click)="openQr(link.shortUrl, link.shortCode)" aria-haspopup="dialog">{{ m.qr }}</button></div></div>
+      }
+    </section>
+    <section class="panel top-links-panel" aria-labelledby="top-links-title" [attr.aria-busy]="topLinksLoading()">
+      <div class="section-heading"><div><h2 id="top-links-title">{{ m.topLinksHeading }}</h2><p class="muted">{{ m.topLinksDescription }}</p></div><span class="decorative-link" aria-hidden="true">↗</span></div>
+      @if (topLinksLoading() && !topLinks()) { <p class="muted" role="status">{{ m.topLinksLoading }}</p> }
+      @else if (topLinksError()) {
+        <div class="notice error" role="alert">{{ topLinksError() }}<button type="button" class="text-button" (click)="refresh()">{{ m.retry }}</button></div>
+      } @else if (topLinks(); as links) {
+        @if (links.length === 0) { <p class="muted">{{ m.topLinksEmpty }}</p> }
+        @else {
+          <ol class="top-links" [class.refreshing]="topLinksLoading()">
+            @for (link of links; track link.id) {
+              <li>
+                <span class="link-rank" aria-hidden="true">{{ $index + 1 }}</span>
+                <div class="top-link-details"><a [href]="shortUrl(link)" target="_blank" rel="noopener noreferrer" [title]="shortUrl(link)">{{ link.shortCode }}</a><span class="top-destination" [title]="link.originalUrl">{{ link.originalUrl }}</span><span [class]="'badge ' + status(link)">{{ m.status[status(link)] }}</span></div>
+                <div class="top-clicks"><strong>{{ link.clickCount | number }}</strong><span>{{ m.clicks }}</span></div>
+              </li>
+            }
+          </ol>
+        }
       }
     </section>
     <section class="panel links-panel" id="my-links" aria-labelledby="links-title">
@@ -92,6 +118,7 @@
                     <td>{{ link.clickCount | number }}</td><td>{{ link.expiresAt ? (link.expiresAt | date:'medium') : m.noExpiry }}</td><td>{{ link.lastAccessedAt ? (link.lastAccessedAt | date:'medium') : m.never }}</td>
                     <td><div class="row-actions">
                       <button type="button" class="text-button" (click)="copyLink(shortUrl(link))" [attr.aria-label]="copy.format(m.copyLabel, { code: link.shortCode })">{{ m.copy }}</button>
+                      <button type="button" class="text-button" (click)="openQr(shortUrl(link), link.shortCode, status(link) === 'ACTIVE')" [attr.aria-label]="copy.format(m.qrLabel, { code: link.shortCode })" aria-haspopup="dialog">{{ m.qr }}</button>
                       <button type="button" class="text-button" (click)="openEditor(link)" [disabled]="!!busy() || listLoading() || detailsLoading() !== null">{{ detailsLoading() === link.id ? m.loading : m.edit }}</button>
                       <button type="button" class="text-button danger-text" (click)="requestDelete(link)" [disabled]="!!busy() || listLoading() || detailsLoading() !== null">{{ m.delete }}</button>
                     </div></td>
@@ -116,11 +143,33 @@
     </section>
   </main>
 </div>
+<dialog #qrDialog class="panel modal workspace-modal qr-modal" aria-labelledby="qr-title" aria-describedby="qr-description" (cancel)="closeQr($event)">
+  <h2 id="qr-title">{{ m.qrHeading }}</h2>
+  <p class="muted" id="qr-description">{{ m.qrDescription }}</p>
+  <div class="qr-preview" [attr.aria-busy]="qrLoading()">
+    @if (qrLoading()) { <p class="muted" role="status">{{ m.qrLoading }}</p> }
+    @if (qrImage()) { <img [src]="qrImage()" [alt]="copy.format(m.qrImageLabel, { code: qrLink()?.code ?? '' })" width="256" height="256" /> }
+    @if (qrError()) { <p class="notice error" role="alert">{{ qrError() }}</p> }
+  </div>
+  <p class="qr-url">{{ qrLink()?.url }}</p>
+  @if (qrLink() && !qrLink()?.available) { <p class="notice" role="status">{{ m.qrUnavailable }}</p> }
+  @if (qrLink()?.local) { <p class="muted">{{ m.qrLocalHint }}</p> }
+  <div class="dialog-actions">
+    <button type="button" class="secondary" (click)="closeQr()" autofocus>{{ m.qrClose }}</button>
+    @if (qrImage()) { <a class="primary" [href]="qrImage()" [download]="'linkly-' + qrLink()?.code + '.png'">{{ m.qrDownload }}</a> }
+  </div>
+</dialog>
 <dialog #editDialog class="panel modal workspace-modal" aria-labelledby="edit-title" (cancel)="closeEditor($event)">
   <h2 id="edit-title">{{ m.editHeading }}</h2><p class="muted">{{ editing()?.originalUrl }}</p>
   <form [formGroup]="editForm" (ngSubmit)="saveEdit()" novalidate>
     <label class="checkbox" for="edit-active"><input id="edit-active" type="checkbox" formControlName="active" [attr.disabled]="busy() ? '' : null" /> {{ m.activeAfterSaving }}</label>
-    <label for="edit-expiration">{{ m.expiration }}</label><input id="edit-expiration" type="datetime-local" formControlName="expiresAt" [readOnly]="!!busy()" aria-describedby="edit-expiration-error edit-help" [attr.aria-invalid]="editForm.controls.expiresAt.touched && editForm.controls.expiresAt.invalid" />
+    <label for="edit-expiration">{{ m.expiration }}</label><input id="edit-expiration" type="datetime-local" formControlName="expiresAt" (input)="editPreset.set(null)" [readOnly]="!!busy()" aria-describedby="edit-expiration-error edit-presets-help edit-help" [attr.aria-invalid]="editForm.controls.expiresAt.touched && editForm.controls.expiresAt.invalid" />
+    <div class="expiration-presets" role="group" [attr.aria-label]="m.expirationPresets">
+      @for (days of presetDays; track days) {
+        <button type="button" (click)="setExpirationPreset('edit', days)" [class.chosen]="editPreset() === days" [attr.aria-pressed]="editPreset() === days" [disabled]="!!busy()">{{ days === 1 ? m.expirationOneDay : copy.format(m.expirationDays, { days: days }) }}</button>
+      }
+    </div>
+    <p class="preset-help" id="edit-presets-help">{{ m.expirationPresetsHelp }}</p>
     <p class="field-error" id="edit-expiration-error">{{ fieldError(editForm.controls.expiresAt, 'date') }}</p><p class="muted" id="edit-help">{{ m.editHelp }}</p>
     @if (actionError()) { <p class="notice error" role="alert">{{ actionError() }}</p> }
     <div class="dialog-actions"><button type="button" class="secondary" (click)="closeEditor()" [disabled]="!!busy()">{{ m.cancel }}</button><button type="submit" class="primary" [disabled]="!canSave || !!busy()">{{ busy() === 'edit' ? m.saving : m.save }}</button></div>

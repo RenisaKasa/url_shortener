@@ -25,7 +25,6 @@ export class MessagesService {
   load() {
     return this.http.get<Messages>('messages/en.json').pipe(
       tap(messages => this.current.set(mergeMessages(english, messages) as Messages)),
-      // Bundled copy keeps the interface usable if the runtime resource is unavailable.
       catchError(() => of(english)),
     );
   }

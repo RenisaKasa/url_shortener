@@ -14,7 +14,6 @@ describe('Registration', () => {
       imports: [Register],
       providers: [provideHttpClient(), provideHttpClientTesting()],
     });
-    // These tests exercise the real form and HTTP flow without the decorative canvas.
     TestBed.overrideComponent(Register, { set: { template: '' } });
     page = TestBed.createComponent(Register).componentInstance;
     http = TestBed.inject(HttpTestingController);
@@ -58,7 +57,7 @@ describe('Registration', () => {
     page.showPassword.set(true);
     page.showConfirmation.set(true);
     page.onSubmit();
-    page.onSubmit(); // Double submission must not create another request.
+    page.onSubmit();
     expect(page.loading()).toBe(true);
     http.expectOne('/api/auth/csrf').flush(csrf);
     const registration = http.expectOne('/api/auth/register');

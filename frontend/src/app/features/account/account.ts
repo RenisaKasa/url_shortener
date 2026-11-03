@@ -115,7 +115,6 @@ export class Account {
     if (this.form.invalid) { this.form.markAllAsTouched(); return; }
     const { currentPassword, newPassword } = this.form.getRawValue();
     this.loading.set(true);
-    // Passwords are deliberately sent exactly as entered, without trimming.
     this.auth.changePassword({ currentPassword, newPassword }).pipe(
       takeUntilDestroyed(this.destroyRef), finalize(() => this.loading.set(false)),
     ).subscribe({

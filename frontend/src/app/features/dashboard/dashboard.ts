@@ -52,6 +52,7 @@ export class Dashboard {
 
   @ViewChild('editDialog') private editDialog!: ElementRef<HTMLDialogElement>;
   @ViewChild('deleteDialog') private deleteDialog!: ElementRef<HTMLDialogElement>;
+  @ViewChild('qrDialog') private qrDialog!: ElementRef<HTMLDialogElement>;
   @ViewChild('dashboardHeader') private dashboardHeader!: ElementRef<HTMLElement>;
 
   readonly activeSection = signal<'overview' | 'my-links'>('overview');
@@ -59,6 +60,9 @@ export class Dashboard {
   readonly statistics = signal<DashboardStatistics | null>(null);
   readonly statisticsLoading = signal(true);
   readonly statisticsError = signal('');
+  readonly topLinks = signal<ShortUrl[] | null>(null);
+  readonly topLinksLoading = signal(true);
+  readonly topLinksError = signal('');
   readonly results = signal<PageResponse<ShortUrl> | null>(null);
   readonly listLoading = signal(true);
   readonly listError = signal('');
@@ -71,10 +75,18 @@ export class Dashboard {
   readonly created = signal<CreateUrlResponse | null>(null);
   readonly editing = signal<ShortUrl | null>(null);
   readonly deleting = signal<ShortUrl | null>(null);
+  readonly qrLink = signal<{ url: string; code: string; available: boolean; local: boolean } | null>(null);
+  readonly qrImage = signal('');
+  readonly qrLoading = signal(false);
+  readonly qrError = signal('');
+  private qrRequest = 0;
   readonly query = signal<UrlQuery>({
     page: 0, size: 10, search: '', status: '', sort: 'createdAt,desc',
   });
   readonly search = new FormControl('', { nonNullable: true });
+  readonly presetDays = [1, 7, 30] as const;
+  readonly createPreset = signal<number | null>(null);
+  readonly editPreset = signal<number | null>(null);
   readonly createForm = this.fb.nonNullable.group({
     originalUrl: ['', [Validators.required, Validators.maxLength(2048), validHttpUrl]],
     customAlias: ['', Validators.pattern(/^[A-Za-z0-9_-]{3,32}$/)],
@@ -104,7 +116,7 @@ export class Dashboard {
 
   constructor() {
     effect(() => {
-      if (!this.statisticsLoading() && !this.listLoading() && this.anchorPending) {
+      if (!this.statisticsLoading() && !this.listLoading() && !this.topLinksLoading() && this.anchorPending) {
         this.anchorPending = false;
         afterNextRender(() => this.scrollToSection('my-links'), { injector: this.injector });
       }
@@ -126,6 +138,25 @@ export class Dashboard {
       takeUntilDestroyed(this.destroyRef),
     ).subscribe(statistics => {
       if (!this.leaving && statistics) this.statistics.set(statistics);
+    });
+
+    this.reloadStatistics.pipe(
+      startWith(undefined),
+      switchMap(() => {
+        this.topLinksLoading.set(true);
+        this.topLinksError.set('');
+        return this.api.list({ page: 0, size: 3, sort: 'clickCount,desc', search: '', status: '' }).pipe(
+          catchError((error: HttpErrorResponse) => {
+            this.topLinks.set(null);
+            this.topLinksError.set(this.problem(error));
+            return of(null);
+          }),
+          finalize(() => this.topLinksLoading.set(false)),
+        );
+      }),
+      takeUntilDestroyed(this.destroyRef),
+    ).subscribe(page => {
+      if (!this.leaving && page) this.topLinks.set(page.content);
     });
 
     combineLatest([
@@ -208,9 +239,48 @@ export class Dashboard {
       this.success.set(this.m.copied);
     } catch { this.actionError.set(this.m.copyError); }
   }
+  async openQr(url: string, code: string, available = true): Promise<void> {
+    const request = ++this.qrRequest;
+    const hostname = new URL(url, window.location.origin).hostname;
+    this.qrLink.set({ url, code, available, local: ['localhost', '127.0.0.1', '[::1]'].includes(hostname) });
+    this.qrImage.set('');
+    this.qrError.set('');
+    this.qrLoading.set(true);
+    this.qrDialog.nativeElement.showModal();
+    try {
+      const { default: qrCode } = await import('qrcode');
+      const image = await qrCode.toDataURL(url, {
+        width: 768, margin: 4, errorCorrectionLevel: 'M',
+        color: { dark: '#101010', light: '#ffffff' },
+      });
+      if (request === this.qrRequest && !this.destroyRef.destroyed) this.qrImage.set(image);
+    } catch {
+      if (request === this.qrRequest && !this.destroyRef.destroyed) this.qrError.set(this.m.qrError);
+    } finally {
+      if (request === this.qrRequest && !this.destroyRef.destroyed) this.qrLoading.set(false);
+    }
+  }
+  closeQr(event?: Event): void {
+    event?.preventDefault();
+    ++this.qrRequest;
+    this.qrDialog.nativeElement.close();
+    this.qrLink.set(null);
+    this.qrImage.set('');
+    this.qrError.set('');
+    this.qrLoading.set(false);
+  }
   fieldError(control: AbstractControl, field: 'url' | 'alias' | 'date'): string {
     if (!control.touched || control.valid) return '';
     return control.getError('server') ?? this.m.validation[field];
+  }
+
+  setExpirationPreset(target: 'create' | 'edit', days: number): void {
+    if (this.busy()) return;
+    const control = target === 'create' ? this.createForm.controls.expiresAt : this.editForm.controls.expiresAt;
+    control.setValue(this.localDate(new Date(Date.now() + days * 86400000).toISOString()));
+    control.markAsDirty();
+    control.markAsTouched();
+    (target === 'create' ? this.createPreset : this.editPreset).set(days);
   }
 
   createLink(): void {
@@ -233,6 +303,7 @@ export class Dashboard {
       next: created => {
         this.created.set(created);
         this.createForm.reset();
+        this.createPreset.set(null);
         this.success.set(this.m.created);
         this.refresh();
       },
@@ -261,6 +332,7 @@ export class Dashboard {
       next: fresh => {
         this.editing.set(fresh);
         this.editForm.reset({ active: fresh.active, expiresAt: this.localDate(fresh.expiresAt) });
+        this.editPreset.set(null);
         this.editDialog.nativeElement.showModal();
       },
       error: (error: HttpErrorResponse) => {
@@ -384,6 +456,7 @@ export class Dashboard {
         this.leaving = true;
         this.auth.clearIdentity();
         this.statistics.set(null);
+        this.topLinks.set(null);
         this.results.set(null);
         this.created.set(null);
         this.createForm.reset();
@@ -391,6 +464,7 @@ export class Dashboard {
         this.deleting.set(null);
         this.editDialog?.nativeElement.close();
         this.deleteDialog?.nativeElement.close();
+        if (this.qrDialog?.nativeElement.open) this.closeQr();
         void this.router.navigate(['/login']);
       }
       return '';
