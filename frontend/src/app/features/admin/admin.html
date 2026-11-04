@@ -117,12 +117,12 @@
           } @else if (urls(); as page) {
             @if (page.content.length === 0) { <p class="empty">{{ m.noLinks }}</p> } @else {
               <div class="table-wrap" [class.refreshing]="tab() === 'users' ? usersLoading() : urlsLoading()"><table>
-                <thead><tr><th scope="col">{{ m.destination }}</th><th scope="col">{{ m.ownerId }}</th><th scope="col">{{ m.linkStatus }}</th><th scope="col">{{ m.clicks }}</th><th scope="col">{{ m.expires }}</th><th scope="col">{{ m.lastAccessed }}</th><th scope="col">{{ m.actions }}</th></tr></thead>
+                <thead><tr><th scope="col">{{ m.destination }}</th><th scope="col">{{ m.email }}</th><th scope="col">{{ m.linkStatus }}</th><th scope="col">{{ m.clicks }}</th><th scope="col">{{ m.expires }}</th><th scope="col">{{ m.lastAccessed }}</th><th scope="col">{{ m.actions }}</th></tr></thead>
                 <tbody>
                   @for (link of page.content; track link.id) {
                     <tr>
                       <td class="destination"><a [href]="shortUrl(link)" target="_blank" rel="noopener noreferrer">{{ shortUrl(link) }}</a><span [title]="link.originalUrl">{{ link.originalUrl }}</span></td>
-                      <td>#{{ link.userId }}</td><td><span [class]="'badge ' + status(link)">{{ m.status[status(link)] }}</span></td>
+                      <td class="email-cell">{{ ownerEmails()[link.userId] ?? '—' }}</td><td><span [class]="'badge ' + status(link)">{{ m.status[status(link)] }}</span></td>
                       <td>{{ link.clickCount | number }}</td><td>{{ link.expiresAt ? (link.expiresAt | date:'medium') : m.noExpiry }}</td>
                       <td>{{ link.lastAccessedAt ? (link.lastAccessedAt | date:'medium') : m.never }}</td>
                       <td><button type="button" class="text-button" (click)="copyLink(link)">{{ m.copy }}</button></td>

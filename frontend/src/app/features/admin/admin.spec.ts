@@ -55,7 +55,7 @@ describe('Administrator workspace', () => {
     await render(fixture);
     expect(fixture.nativeElement.querySelector('dialog').open).toBe(false);
     expect(component.success()).toContain(other.email);
-    expect(api.users).toHaveBeenCalledTimes(2);
+    expect(api.users).toHaveBeenCalledTimes(3);
     component.requestStatusChange({ ...other, active: false });
     component.closeStatusDialog();
     expect(component.target()).toBeNull();
@@ -68,6 +68,18 @@ describe('Administrator workspace', () => {
     expect(component.actionError()).not.toBe('');
     expect(fixture.nativeElement.querySelector('dialog').open).toBe(status !== 404);
   });
+  it('maps link owners to emails even when their account is outside the visible users page', async () => {
+    const owner = { ...other, id: 101, email: 'link-owner@example.com' };
+    api.users.mockImplementation(query => query.size === 100
+      ? of(page<UserResponse>(query.page === 0 ? [admin] : [owner], { number: query.page, totalPages: 2, last: query.page === 1 }))
+      : of(page([admin])));
+    api.urls.mockReturnValue(of(page([{ ...link, userId: owner.id }])));
+    component.refresh(); component.tab.set('urls'); await render(fixture);
+    expect(api.users).toHaveBeenCalledWith(expect.objectContaining({ page: 1, size: 100, search: '', active: '', role: '' }));
+    expect(fixture.nativeElement.querySelector('tbody tr td:nth-child(2)').textContent).toBe(owner.email);
+    expect(fixture.nativeElement.querySelector('thead').textContent).not.toContain('User ID');
+  });
+
   it('requests filtered and paginated accounts and URLs from controls', async () => {
     input(fixture, '#user-search', ' other '); await delay();
     component.setUserStatus('false'); component.setRole('USER'); component.setUserSort('email,asc'); component.setPageSize('20');

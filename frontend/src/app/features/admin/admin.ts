@@ -5,8 +5,8 @@ import { FormControl, ReactiveFormsModule } from '@angular/forms';
 import { Router, RouterLink } from '@angular/router';
 import { takeUntilDestroyed, toObservable } from '@angular/core/rxjs-interop';
 import {
-  Subject, catchError, combineLatest, debounceTime, distinctUntilChanged,
-  finalize, map, of, startWith, switchMap,
+  EMPTY, Subject, catchError, combineLatest, debounceTime, distinctUntilChanged,
+  expand, finalize, map, of, startWith, switchMap,
 } from 'rxjs';
 import { AdminApi, AdminUrlsQuery, UsersQuery } from '../../core/services/admin-api';
 import { AuthService } from '../../core/services/auth';
@@ -47,6 +47,7 @@ export class Admin {
   readonly loggingOut = signal(false);
   readonly target = signal<UserResponse | null>(null);
   readonly selectedUser = signal<Pick<UserResponse, 'id' | 'email'> | null>(null);
+  readonly ownerEmails = signal<Partial<Record<number, string>>>({});
   readonly userSearch = new FormControl('', { nonNullable: true });
   readonly urlSearch = new FormControl('', { nonNullable: true });
 
@@ -64,6 +65,21 @@ export class Admin {
   get m() { return this.text().admin; }
 
   constructor() {
+    const ownersQuery: UsersQuery = { page: 0, size: 100, search: '', active: '', role: '', sort: 'id,asc' };
+    this.reloadUrls.pipe(
+      startWith(undefined),
+      switchMap(() => this.api.users(ownersQuery).pipe(
+        expand(page => page.last ? EMPTY : this.api.users({ ...ownersQuery, page: page.number + 1 })),
+        catchError((error: HttpErrorResponse) => {
+          if (error.status === 401) this.problem(error);
+          return EMPTY;
+        }),
+      )),
+      takeUntilDestroyed(this.destroyRef),
+    ).subscribe(page => {
+      if (!this.leaving) this.ownerEmails.update(owners => ({ ...owners, ...Object.fromEntries(page.content.map(user => [user.id, user.email])) }));
+    });
+
     combineLatest([
       toObservable(this.usersQuery), this.reloadUsers.pipe(startWith(undefined)),
     ]).pipe(
@@ -260,6 +276,7 @@ export class Admin {
         this.auth.clearIdentity();
         this.users.set(null);
         this.urls.set(null);
+        this.ownerEmails.set({});
         this.selectedUser.set(null);
         this.target.set(null);
         this.statusDialog?.nativeElement.close();
