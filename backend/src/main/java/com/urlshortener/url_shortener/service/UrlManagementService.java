@@ -17,6 +17,8 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
 
 import java.time.Instant;
+import java.util.HashSet;
+import java.util.List;
 
 @Service
 @PreAuthorize("isAuthenticated()")
@@ -118,6 +120,39 @@ public class UrlManagementService {
     @Transactional
     public void delete(Long id) {
         urls.delete(access.requireOwnedUrl(id));
+    }
+
+    @Transactional
+    public void bulkSetActive(List<Long> ids, boolean active) {
+        Long ownerId = requireOwnedSelection(ids);
+        Instant now = Instant.now();
+        // The conditional update rechecks expiration at write time. An incomplete
+        // update throws within this transaction, rolling back the entire selection.
+        if (urls.updateActiveForOwner(ownerId, ids, active, now) != ids.size()) {
+            throw badRequest("Provide a future expiration date before enabling expired URLs");
+        }
+    }
+
+    @Transactional
+    public void bulkDelete(List<Long> ids) {
+        Long ownerId = requireOwnedSelection(ids);
+        if (urls.deleteForOwner(ownerId, ids) != ids.size()) {
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "URL not found");
+        }
+    }
+
+    private Long requireOwnedSelection(List<Long> ids) {
+        if (new HashSet<>(ids).size() != ids.size()) {
+            throw badRequest("URL IDs must be unique");
+        }
+        var owner = (AccountPrincipal) SecurityContextHolder.getContext()
+                .getAuthentication().getPrincipal();
+        // Lock in a stable order so concurrent edits/deletions cannot change the
+        // selection between the ownership check and the bulk write.
+        if (urls.findByUserIdAndIdInOrderByIdAsc(owner.getId(), ids).size() != ids.size()) {
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "URL not found");
+        }
+        return owner.getId();
     }
 
     private ResponseStatusException badRequest(String message) {

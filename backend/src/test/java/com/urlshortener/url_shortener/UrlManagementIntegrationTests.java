@@ -19,6 +19,8 @@ import org.springframework.test.web.servlet.request.RequestPostProcessor;
 
 import java.time.Instant;
 import java.util.Map;
+import java.util.List;
+import java.util.stream.LongStream;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.*;
@@ -494,6 +496,149 @@ class UrlManagementIntegrationTests {
                                 }
                                 """))
                 .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    void bulkStatusChangesPreserveExpirationAndStatistics() throws Exception {
+        var before = urls.findById(active.getId()).orElseThrow();
+        var expiration = before.getExpiresAt();
+        String ids = json.writeValueAsString(List.of(active.getId(), inactive.getId()));
+        for (boolean enabled : new boolean[]{false, true}) {
+            mvc.perform(patch("/api/urls/bulk").with(as(owner)).with(csrf())
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content("{\"ids\":" + ids + ",\"active\":" + enabled + "}"))
+                    .andExpect(status().isNoContent());
+            var saved = urls.findById(active.getId()).orElseThrow();
+            assertThat(saved.isActive()).isEqualTo(enabled);
+            assertThat(saved.getExpiresAt()).isEqualTo(expiration);
+            assertThat(saved.getClickCount()).isEqualTo(10);
+            assertThat(saved.getLastAccessedAt()).isEqualTo(before.getLastAccessedAt());
+            assertThat(urls.findById(inactive.getId()).orElseThrow().isActive()).isEqualTo(enabled);
+        }
+        assertThat(urls.findById(foreign.getId()).orElseThrow().isActive()).isTrue();
+    }
+
+    @Test
+    void bulkActivationOfExpiredSelectionRollsBackEveryChange() throws Exception {
+        mvc.perform(patch("/api/urls/bulk").with(as(owner)).with(csrf())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(json.writeValueAsString(Map.of(
+                                "ids", List.of(inactive.getId(), expired.getId()), "active", true))))
+                .andExpect(status().isBadRequest());
+        assertThat(urls.findById(inactive.getId()).orElseThrow().isActive()).isFalse();
+
+        // Expired links can still be disabled as part of a selection.
+        mvc.perform(patch("/api/urls/bulk").with(as(owner)).with(csrf())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(json.writeValueAsString(Map.of(
+                                "ids", List.of(active.getId(), expired.getId()), "active", false))))
+                .andExpect(status().isNoContent());
+        assertThat(urls.findById(expired.getId()).orElseThrow().isActive()).isFalse();
+    }
+
+    @Test
+    void bulkActionsRejectForeignOrMissingIdsWithoutPartialChanges() throws Exception {
+        for (Long inaccessible : List.of(foreign.getId(), 999999L)) {
+            var ids = List.of(active.getId(), inaccessible);
+            mvc.perform(patch("/api/urls/bulk").with(as(owner)).with(csrf())
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content(json.writeValueAsString(Map.of("ids", ids, "active", false))))
+                    .andExpect(status().isNotFound())
+                    .andExpect(jsonPath("$.message").value("URL not found"));
+            mvc.perform(post("/api/urls/bulk-delete").with(as(owner)).with(csrf())
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content(json.writeValueAsString(Map.of("ids", ids))))
+                    .andExpect(status().isNotFound());
+        }
+        mvc.perform(post("/api/urls/bulk-delete").with(as(admin)).with(csrf())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(json.writeValueAsString(Map.of("ids", List.of(active.getId())))))
+                .andExpect(status().isNotFound());
+        assertThat(urls.count()).isEqualTo(4);
+        assertThat(urls.findById(active.getId()).orElseThrow().isActive()).isTrue();
+        assertThat(urls.findById(foreign.getId()).orElseThrow().isActive()).isTrue();
+    }
+
+    @Test
+    void bulkDeleteRemovesOnlySelectedOwnedLinks() throws Exception {
+        mvc.perform(post("/api/urls/bulk-delete").with(as(owner)).with(csrf())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(json.writeValueAsString(Map.of(
+                                "ids", List.of(active.getId(), inactive.getId())))))
+                .andExpect(status().isNoContent());
+        assertThat(urls.existsById(active.getId())).isFalse();
+        assertThat(urls.existsById(inactive.getId())).isFalse();
+        assertThat(urls.count()).isEqualTo(2);
+        mvc.perform(get("/r/alpha")).andExpect(status().isNotFound());
+    }
+
+    @Test
+    void bulkRequestsValidateIdsAndRequireAuthenticationAndCsrf() throws Exception {
+        String tooMany = json.writeValueAsString(LongStream.rangeClosed(1, 101).boxed().toList());
+        for (String ids : new String[]{"[]", "null", "[null]", "[0]", "[-1]", "[1,1]", tooMany}) {
+            mvc.perform(patch("/api/urls/bulk").with(as(owner)).with(csrf())
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content("{\"ids\":" + ids + ",\"active\":false}"))
+                    .andExpect(status().isBadRequest()).andExpect(jsonPath("$.status").value(400));
+            mvc.perform(post("/api/urls/bulk-delete").with(as(owner)).with(csrf())
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content("{\"ids\":" + ids + "}"))
+                    .andExpect(status().isBadRequest()).andExpect(jsonPath("$.status").value(400));
+        }
+        mvc.perform(patch("/api/urls/bulk").with(as(owner)).with(csrf())
+                        .contentType(MediaType.APPLICATION_JSON).content("{\"ids\":[1]}"))
+                .andExpect(status().isBadRequest());
+        String body = json.writeValueAsString(Map.of("ids", List.of(active.getId()), "active", false));
+        for (var request : List.of(patch("/api/urls/bulk"), post("/api/urls/bulk-delete"))) {
+            mvc.perform(request.with(csrf()).contentType(MediaType.APPLICATION_JSON).content(body))
+                    .andExpect(status().isUnauthorized());
+        }
+        for (var request : List.of(patch("/api/urls/bulk"), post("/api/urls/bulk-delete"))) {
+            mvc.perform(request.with(as(owner)).contentType(MediaType.APPLICATION_JSON).content(body))
+                    .andExpect(status().isForbidden());
+        }
+        assertThat(urls.count()).isEqualTo(4);
+        assertThat(urls.findById(active.getId()).orElseThrow().isActive()).isTrue();
+    }
+
+    @Test
+    void duplicateCheckIsOwnerScopedPaginatedAndDoesNotBlockCreation() throws Exception {
+        String destination = active.getOriginalUrl();
+        inactive.setOriginalUrl(destination);
+        urls.saveAndFlush(inactive);
+        foreign.setOriginalUrl(destination);
+        urls.saveAndFlush(foreign);
+        mvc.perform(get("/api/urls/duplicates").with(as(owner))
+                        .param("originalUrl", "  " + destination + "  ")
+                        .param("page", "1").param("size", "1").param("sort", "clickCount,desc")
+                        .param("userId", other.getId().toString()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.totalElements").value(2))
+                .andExpect(jsonPath("$.totalPages").value(2))
+                .andExpect(jsonPath("$.content[0].id").value(inactive.getId()))
+                .andExpect(jsonPath("$.content[0].shortCode").value("beta"));
+        mvc.perform(get("/api/urls/duplicates").with(as(admin)).param("originalUrl", destination))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.content").isEmpty());
+        mvc.perform(get("/api/urls/duplicates").with(as(owner))
+                        .param("originalUrl", "https://example.com/no-match"))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.totalElements").value(0));
+        mvc.perform(post("/api/urls").with(as(owner)).with(csrf())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(json.writeValueAsString(Map.of("originalUrl", destination))))
+                .andExpect(status().isCreated());
+    }
+
+    @Test
+    void duplicateCheckValidatesDestinationAndPaginationAndRequiresLogin() throws Exception {
+        for (String destination : List.of("", "javascript:alert(1)", "https://user:pass@example.com", "x".repeat(2049))) {
+            mvc.perform(get("/api/urls/duplicates").with(as(owner)).param("originalUrl", destination))
+                    .andExpect(status().isBadRequest()).andExpect(jsonPath("$.status").value(400));
+        }
+        mvc.perform(get("/api/urls/duplicates").with(as(owner))
+                        .param("originalUrl", active.getOriginalUrl()).param("size", "101"))
+                .andExpect(status().isBadRequest());
+        mvc.perform(get("/api/urls/duplicates").param("originalUrl", active.getOriginalUrl()))
+                .andExpect(status().isUnauthorized());
     }
 
     private RequestPostProcessor as(User account) {
