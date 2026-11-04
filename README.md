@@ -10,8 +10,11 @@ click statistics. Administrators can manage user accounts and view all links.
 - Short links with optional custom aliases and public redirects.
 - URL search, status filtering, sorting and pagination.
 - Link activation, deactivation, expiration updates and deletion.
+- Bulk activation, deactivation and deletion of owned links.
+- Duplicate-destination warnings, with the option to create another link.
+- QR code previews and PNG downloads for short links.
 - Automatic deactivation of expired links.
-- Click counts, last-access timestamps and a personal statistics dashboard.
+- Click counts, last-access timestamps, dashboard totals and most-clicked links.
 - Administrator access to user accounts and all shortened URLs.
 
 ## Requirements
@@ -79,6 +82,10 @@ New accounts receive the `USER` role. After logging in, create a short link,
 copy it and open it in another tab. The dashboard provides link management and
 usage statistics.
 
+Short links and QR codes generated on localhost work on the computer running
+the application. Scanning them on another device requires an address that
+device can reach.
+
 The development server forwards `/api` and `/r` requests to the backend.
 Both servers must be running.
 
@@ -111,6 +118,9 @@ when creating a link or change it later. Disabled and expired links do not
 redirect visitors. Expired links are retained with their statistics and are
 deactivated by a background task that runs every minute.
 
+The frontend offers 1-day, 7-day and 30-day expiration presets. To reactivate
+an expired link, choose a future expiration date and enable it.
+
 The defaults are configured in `backend/src/main/resources/application.properties`:
 
 ```properties
@@ -132,13 +142,21 @@ With the backend running, open
 | --- | --- |
 | `/api/auth` | Registration, login, logout, current account, password changes and CSRF tokens |
 | `/api/urls` | Create, list and manage the authenticated user's links |
+| `GET /api/urls/duplicates` | Find existing links for a destination, with pagination and sorting |
+| `PATCH /api/urls/bulk` | Activate or deactivate up to 100 owned links |
+| `POST /api/urls/bulk-delete` | Delete up to 100 owned links |
 | `/api/dashboard/statistics` | Statistics for the authenticated user's links |
 | `/api/admin` | Administrator user and link management |
 | `/r/{code}` | Public redirect to the original URL |
 
-Authentication uses a session cookie. Swagger obtains CSRF tokens for write
-requests automatically; log in through `/api/auth/login` before testing
-protected endpoints. See [SECURITY.md](SECURITY.md) for authentication details.
+Passwords are hashed with BCrypt. Authentication uses an HTTP-only session
+cookie; write requests require a CSRF token. Swagger obtains these tokens
+automatically. Log in through `/api/auth/login` before testing protected
+endpoints. Administrators use the same login endpoint.
+
+Bulk requests succeed or fail as a whole. Missing or foreign URL IDs reject
+the selection, and expired links must receive a future expiration before
+they can be enabled. Duplicate checks are advisory and do not prevent creation.
 
 ## Tests and builds
 
@@ -156,9 +174,14 @@ JAR in `backend/target/`.
 From `frontend/`:
 
 ```powershell
-npm test -- --watch=false
-npm run build
+npm.cmd run test:coverage
+npm.cmd run build
 ```
+
+Frontend verification runs once and checks at least 80% coverage for
+statements, branches, functions and lines. Open
+`frontend/coverage/frontend/index.html` for the report. For watch mode during
+development, run `npm.cmd test`.
 
 The frontend build is generated in `frontend/dist/frontend/browser/`.
 For deployment, serve the frontend and proxy `/api` and `/r` to the backend
