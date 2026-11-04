@@ -1,4 +1,6 @@
-import { TestBed } from '@angular/core/testing';
+import { ComponentFixture, TestBed } from '@angular/core/testing';
+import { provideRouter } from '@angular/router';
+import { click, input, render, submit } from '../../../../testing/helpers';
 import { provideHttpClient } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { Register } from './register';
@@ -8,18 +10,58 @@ const csrf = { token: 'registration-token', headerName: 'X-CSRF-TOKEN', paramete
 describe('Registration', () => {
   let page: Register;
   let http: HttpTestingController;
+  let fixture: ComponentFixture<Register>;
 
   beforeEach(() => {
     TestBed.configureTestingModule({
       imports: [Register],
-      providers: [provideHttpClient(), provideHttpClientTesting()],
+      providers: [provideHttpClient(), provideHttpClientTesting(), provideRouter([])],
     });
-    TestBed.overrideComponent(Register, { set: { template: '' } });
-    page = TestBed.createComponent(Register).componentInstance;
+    fixture = TestBed.createComponent(Register);
+    page = fixture.componentInstance;
     http = TestBed.inject(HttpTestingController);
+    fixture.detectChanges();
   });
 
-  afterEach(() => http.verify());
+  afterEach(() => { fixture.detectChanges(); http.verify(); });
+
+  it('renders validation, password visibility and successful registration through the form', async () => {
+    submit(fixture);
+    await render(fixture);
+    expect(fixture.nativeElement.querySelector('#register-email-error').textContent).toContain('valid email');
+    input(fixture, '#register-email', 'person@example.com');
+    input(fixture, '#register-password', 'test-password');
+    input(fixture, '#confirm-password', 'test-password');
+    click(fixture, '[aria-label="Show password"]');
+    click(fixture, '[aria-label="Show password confirmation"]');
+    await render(fixture);
+    expect(fixture.nativeElement.querySelector('#register-password').type).toBe('text');
+    expect(fixture.nativeElement.querySelector('#confirm-password').type).toBe('text');
+    submit(fixture);
+    fixture.detectChanges();
+    expect(fixture.nativeElement.querySelector('[type="submit"]').disabled).toBe(true);
+    http.expectOne('/api/auth/csrf').flush(csrf);
+    http.expectOne('/api/auth/register').flush({ message: 'Created' });
+    await render(fixture);
+    expect(fixture.nativeElement.querySelector('.success').textContent).toContain('account is ready');
+    expect(fixture.nativeElement.querySelector('form')).toBeNull();
+    expect(document.activeElement?.id).toBe('register-title');
+  });
+
+  it('renders backend errors and confirmation mismatch without hiding the form', async () => {
+    fill();
+    page.form.controls.confirmPassword.setValue('different');
+    submit(fixture);
+    await render(fixture);
+    expect(fixture.nativeElement.querySelector('#confirmation-error').textContent).toContain('match');
+    page.form.controls.confirmPassword.setValue('test-password');
+    submit(fixture);
+    http.expectOne('/api/auth/csrf').flush(csrf);
+    http.expectOne('/api/auth/register').flush({}, { status: 500, statusText: 'Server Error' });
+    await render(fixture);
+    expect(fixture.nativeElement.querySelector('[role="alert"]')).not.toBeNull();
+    expect(fixture.nativeElement.querySelector('form')).not.toBeNull();
+  });
 
   function fill(password = 'test-password', email = 'person@example.com') {
     page.form.setValue({ email, password, confirmPassword: password });

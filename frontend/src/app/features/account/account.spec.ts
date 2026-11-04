@@ -1,4 +1,6 @@
-import { TestBed } from '@angular/core/testing';
+import { ComponentFixture, TestBed } from '@angular/core/testing';
+import { click, input, render, submit, user } from '../../../testing/helpers';
+import { AuthService } from '../../core/services/auth';
 import { provideHttpClient } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { provideRouter, Router } from '@angular/router';
@@ -7,16 +9,72 @@ import { Account } from './account';
 describe('Account password change', () => {
   let account: Account;
   let http: HttpTestingController;
+  let fixture: ComponentFixture<Account>;
   beforeEach(() => {
     TestBed.configureTestingModule({
       imports: [Account],
       providers: [provideHttpClient(), provideHttpClientTesting(), provideRouter([])],
     });
-    TestBed.overrideComponent(Account, { set: { template: '' } });
-    account = TestBed.createComponent(Account).componentInstance;
     http = TestBed.inject(HttpTestingController);
+    TestBed.inject(AuthService).restoreSession().subscribe();
+    http.expectOne('/api/auth/me').flush(user);
+    fixture = TestBed.createComponent(Account);
+    account = fixture.componentInstance;
+    fixture.detectChanges();
   });
-  afterEach(() => http.verify());
+  afterEach(() => { fixture.detectChanges(); http.verify(); });
+
+  it('renders and submits the password editor, including validation and visibility controls', async () => {
+    click(fixture, '.edit-password');
+    await render(fixture);
+    expect(document.activeElement?.id).toBe('currentPassword');
+    submit(fixture);
+    await render(fixture);
+    expect(fixture.nativeElement.querySelectorAll('.field-error').length).toBe(3);
+    input(fixture, '#currentPassword', 'old-password');
+    input(fixture, '#newPassword', 'short');
+    input(fixture, '#confirmation', 'different');
+    submit(fixture);
+    await render(fixture);
+    expect(fixture.nativeElement.querySelector('#newPassword-error').textContent).toContain('8');
+    input(fixture, '#newPassword', 'new-password');
+    input(fixture, '#confirmation', 'new-password');
+    click(fixture, '.password-field button');
+    await render(fixture);
+    expect(fixture.nativeElement.querySelector('#currentPassword').type).toBe('text');
+    submit(fixture);
+    fixture.detectChanges();
+    expect(fixture.nativeElement.querySelector('[type="submit"]').disabled).toBe(true);
+    http.expectOne('/api/auth/csrf').flush({ token: 'csrf', headerName: 'X-CSRF-TOKEN' });
+    http.expectOne('/api/auth/password').flush({ fieldErrors: { newPassword: 'Try another password' } }, { status: 400, statusText: 'Bad Request' });
+    await render(fixture);
+    expect(fixture.nativeElement.querySelector('#newPassword-error').textContent).toBe('Try another password');
+    click(fixture, '#password-editor .secondary');
+    await render(fixture);
+    expect(fixture.nativeElement.querySelector('form')).toBeNull();
+  });
+
+  it.each([401, 500])('handles password failures with status %s', async status => {
+    const navigate = vi.spyOn(TestBed.inject(Router), 'navigate').mockResolvedValue(true);
+    account.openPasswordEditor();
+    account.form.setValue({ currentPassword: 'old-password', newPassword: 'new-password', confirmation: 'new-password' });
+    account.changePassword();
+    http.expectOne('/api/auth/csrf').flush({ token: 'csrf', headerName: 'X-CSRF-TOKEN' });
+    http.expectOne('/api/auth/password').flush({}, { status, statusText: 'Failure' });
+    await render(fixture);
+    if (status === 401) { expect(navigate).toHaveBeenCalledWith(['/login']); expect(account.form.controls.currentPassword.value).toBe(''); }
+    else expect(fixture.nativeElement.querySelector('[role="alert"]')).not.toBeNull();
+  });
+
+  it.each([204, 401, 500])('logs out and handles status %s', async status => {
+    const navigate = vi.spyOn(TestBed.inject(Router), 'navigate').mockResolvedValue(true);
+    click(fixture, '.sidebar button');
+    http.expectOne('/api/auth/csrf').flush({ token: 'csrf', headerName: 'X-CSRF-TOKEN' });
+    http.expectOne('/api/auth/logout').flush(null, { status, statusText: 'Result' });
+    await render(fixture);
+    if (status !== 500) expect(navigate).toHaveBeenCalledWith(['/login']);
+    else expect(fixture.nativeElement.querySelector('[role="alert"]')).not.toBeNull();
+  });
 
   it('keeps password editing collapsed and clears unsaved values on cancel', () => {
     expect(account.passwordEditing()).toBe(false);
