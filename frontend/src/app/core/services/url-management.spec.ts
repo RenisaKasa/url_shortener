@@ -129,6 +129,49 @@ describe('URL management API integration', () => {
     expect(deleted).toBe(true);
   });
 
+  it('checks duplicate destinations with encoded URL parameters and pagination', () => {
+    const originalUrl = 'https://example.com/path?a=1&b=two';
+    dashboard.duplicates(`  ${originalUrl}  `, 1).subscribe();
+    const request = http.expectOne(req => req.url === `${base}/urls/duplicates`);
+    expect(request.request.method).toBe('GET');
+    expect(request.request.withCredentials).toBe(true);
+    expect(request.request.params.get('originalUrl')).toBe(originalUrl);
+    expect(request.request.params.get('page')).toBe('1');
+    expect(request.request.params.get('size')).toBe('3');
+    expect(request.request.params.get('sort')).toBe('createdAt,desc');
+    request.flush({ ...emptyPage, number: 1 });
+  });
+
+  it('sends bulk status changes together with fresh CSRF protection', () => {
+    for (const active of [false, true]) {
+      dashboard.bulkSetActive([7, 9], active).subscribe();
+      http.expectNone(`${base}/urls/bulk`);
+      respondWithCsrf(`bulk-${active}`);
+      const request = http.expectOne(`${base}/urls/bulk`);
+      expect(request.request.method).toBe('PATCH');
+      expect(request.request.withCredentials).toBe(true);
+      expect(request.request.headers.get(csrf.headerName)).toBe(`bulk-${active}`);
+      expect(request.request.body).toEqual({ ids: [7, 9], active });
+      request.flush(null, { status: 204, statusText: 'No Content' });
+    }
+  });
+
+  it('uses POST and CSRF for bulk deletion and propagates atomic failures', () => {
+    let failed = 0;
+    let completed = false;
+    dashboard.bulkDelete([7, 9]).subscribe({ next: () => completed = true, error: error => failed = error.status });
+    http.expectNone(`${base}/urls/bulk-delete`);
+    respondWithCsrf();
+    const request = http.expectOne(`${base}/urls/bulk-delete`);
+    expect(request.request.method).toBe('POST');
+    expect(request.request.withCredentials).toBe(true);
+    expect(request.request.headers.get(csrf.headerName)).toBe(csrf.token);
+    expect(request.request.body).toEqual({ ids: [7, 9] });
+    request.flush({}, { status: 404, statusText: 'Not Found' });
+    expect(completed).toBe(false);
+    expect(failed).toBe(404);
+  });
+
   it('passes duplicate-alias errors to the caller', () => {
     let status: number | undefined;
     let message: string | undefined;

@@ -8,7 +8,7 @@ import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { takeUntilDestroyed, toObservable } from '@angular/core/rxjs-interop';
 import {
   Subject, catchError, combineLatest, debounceTime, distinctUntilChanged,
-  finalize, map, of, startWith, switchMap,
+  finalize, map, of, startWith, switchMap, timer,
 } from 'rxjs';
 import { AuthService } from '../../core/services/auth';
 import { DashboardApi } from '../../core/services/dashboard-api';
@@ -53,6 +53,7 @@ export class Dashboard {
   @ViewChild('editDialog') private editDialog!: ElementRef<HTMLDialogElement>;
   @ViewChild('deleteDialog') private deleteDialog!: ElementRef<HTMLDialogElement>;
   @ViewChild('qrDialog') private qrDialog!: ElementRef<HTMLDialogElement>;
+  @ViewChild('bulkDialog') private bulkDialog!: ElementRef<HTMLDialogElement>;
   @ViewChild('dashboardHeader') private dashboardHeader!: ElementRef<HTMLElement>;
 
   readonly activeSection = signal<'overview' | 'my-links'>('overview');
@@ -66,7 +67,15 @@ export class Dashboard {
   readonly results = signal<PageResponse<ShortUrl> | null>(null);
   readonly listLoading = signal(true);
   readonly listError = signal('');
-  readonly busy = signal<'create' | 'edit' | 'delete' | null>(null);
+  readonly busy = signal<'create' | 'edit' | 'delete' | 'bulk' | null>(null);
+  readonly selectedIds = signal(new Set<number>());
+  readonly bulkAction = signal<'activate' | 'deactivate' | 'delete' | null>(null);
+  readonly bulkSelection = signal<ShortUrl[]>([]);
+  readonly bulkError = signal('');
+  readonly duplicates = signal<PageResponse<ShortUrl> | null>(null);
+  readonly duplicatesLoading = signal(false);
+  readonly duplicatesError = signal('');
+  private readonly duplicateQuery = signal({ url: '', page: 0 });
   readonly detailsLoading = signal<number | null>(null);
   readonly loggingOut = signal(false);
   readonly success = signal('');
@@ -98,6 +107,13 @@ export class Dashboard {
   private leaving = false;
 
   get m() { return this.text().dashboard; }
+  get selectedLinks() { return this.results()?.content.filter(link => this.selectedIds().has(link.id)) ?? []; }
+  get allPageSelected() { return !!this.results()?.content.length && this.selectedLinks.length === this.results()?.content.length; }
+  get selectedExpired() { return this.selectedLinks.some(link => this.status(link) === 'EXPIRED'); }
+  get bulkHeading() {
+    const action = this.bulkAction();
+    return action ? this.copy.format(this.m.bulk.headings[action], { count: this.bulkSelection().length }) : '';
+  }
   get statisticCards() {
     const stats = this.statistics();
     return stats ? [
@@ -163,6 +179,7 @@ export class Dashboard {
       toObservable(this.query), this.reloadList.pipe(startWith(undefined)),
     ]).pipe(
       switchMap(([query]) => {
+        this.selectedIds.set(new Set());
         this.listLoading.set(true);
         this.listError.set('');
         return this.api.list(query).pipe(
@@ -188,6 +205,110 @@ export class Dashboard {
       map(value => value.trim()), debounceTime(300), distinctUntilChanged(),
       takeUntilDestroyed(this.destroyRef),
     ).subscribe(search => this.query.update(query => ({ ...query, search, page: 0 })));
+
+    this.createForm.controls.originalUrl.valueChanges.pipe(
+      map(value => value.trim()), distinctUntilChanged(), takeUntilDestroyed(this.destroyRef),
+    ).subscribe(url => {
+      this.duplicates.set(null);
+      this.duplicatesError.set('');
+      this.duplicateQuery.set({ url: this.createForm.controls.originalUrl.valid ? url : '', page: 0 });
+    });
+    combineLatest([toObservable(this.duplicateQuery), this.reloadList.pipe(startWith(undefined))]).pipe(
+      switchMap(([query]) => {
+        this.duplicatesError.set('');
+        this.duplicatesLoading.set(!!query.url && !this.leaving);
+        if (!query.url || this.leaving) { this.duplicates.set(null); return of(null); }
+        return timer(350).pipe(
+          switchMap(() => this.api.duplicates(query.url, query.page)),
+          map(page => ({ page, query })),
+          catchError((error: HttpErrorResponse) => {
+            this.duplicates.set(null);
+            if (error.status === 401) this.problem(error);
+            else this.duplicatesError.set(this.m.duplicateCheckError);
+            return of(null);
+          }),
+          finalize(() => this.duplicatesLoading.set(false)),
+        );
+      }),
+      takeUntilDestroyed(this.destroyRef),
+    ).subscribe(result => {
+      if (!result || this.leaving || result.query.url !== this.createForm.controls.originalUrl.value.trim()) return;
+      if (result.page.number > 0 && !result.page.content.length) {
+        this.duplicateQuery.update(query => ({ ...query, page: Math.max(0, result.page.totalPages - 1) }));
+      } else this.duplicates.set(result.page);
+    });
+  }
+
+  changeDuplicatePage(offset: number): void {
+    const page = this.duplicates();
+    if (!page || this.duplicatesLoading()) return;
+    const next = page.number + offset;
+    if (next >= 0 && next < page.totalPages) this.duplicateQuery.update(query => ({ ...query, page: next }));
+  }
+
+  toggleSelection(id: number, checked: boolean): void {
+    if (this.busy() || this.listLoading()) return;
+    this.selectedIds.update(current => {
+      const next = new Set(current);
+      if (checked && next.size < 100 && this.results()?.content.some(link => link.id === id)) next.add(id);
+      else if (!checked) next.delete(id);
+      return next;
+    });
+  }
+  togglePageSelection(checked: boolean): void {
+    if (this.busy() || this.listLoading()) return;
+    this.selectedIds.set(new Set(checked ? this.results()?.content.slice(0, 100).map(link => link.id) : []));
+  }
+  requestBulk(action: 'activate' | 'deactivate' | 'delete'): void {
+    const links = this.selectedLinks;
+    if (this.busy() || this.listLoading() || this.detailsLoading() !== null || !links.length || links.length > 100) return;
+    if (action === 'activate' && this.selectedExpired) return;
+    this.bulkSelection.set(links);
+    this.bulkAction.set(action);
+    this.bulkError.set('');
+    this.bulkDialog.nativeElement.showModal();
+  }
+  closeBulk(event?: Event): void {
+    if (this.busy()) { event?.preventDefault(); return; }
+    this.bulkDialog.nativeElement.close();
+    this.bulkAction.set(null);
+    this.bulkSelection.set([]);
+    this.bulkError.set('');
+  }
+  confirmBulk(): void {
+    const action = this.bulkAction();
+    const links = this.bulkSelection();
+    if (!action || !links.length || links.length > 100 || this.busy()) return;
+    if (action === 'activate' && links.some(link => this.status(link) === 'EXPIRED')) {
+      this.bulkError.set(this.m.bulk.expired);
+      return;
+    }
+    this.busy.set('bulk');
+    this.bulkError.set('');
+    this.success.set('');
+    this.actionError.set('');
+    const ids = links.map(link => link.id);
+    const request = action === 'delete' ? this.api.bulkDelete(ids) : this.api.bulkSetActive(ids, action === 'activate');
+    request.pipe(takeUntilDestroyed(this.destroyRef), finalize(() => this.busy.set(null))).subscribe({
+      next: () => {
+        this.bulkDialog.nativeElement.close();
+        this.bulkAction.set(null);
+        this.bulkSelection.set([]);
+        if (action === 'delete' && ids.includes(this.created()?.id ?? -1)) this.created.set(null);
+        this.success.set(this.copy.format(this.m.bulk.completed[action], { count: ids.length }));
+        this.refresh();
+      },
+      error: (error: HttpErrorResponse) => {
+        if (error.status === 400 || error.status === 404) {
+          this.bulkDialog.nativeElement.close();
+          this.bulkAction.set(null);
+          this.bulkSelection.set([]);
+          this.actionError.set(error.status === 404 ? this.m.bulk.missing
+            : action === 'activate' ? this.m.bulk.expired : this.m.bulk.invalid);
+          this.refresh();
+        } else this.bulkError.set(this.problem(error));
+      },
+    });
   }
 
   refresh(): void {
@@ -459,6 +580,11 @@ export class Dashboard {
         this.topLinks.set(null);
         this.results.set(null);
         this.created.set(null);
+        this.selectedIds.set(new Set());
+        this.duplicates.set(null);
+        this.bulkSelection.set([]);
+        this.bulkAction.set(null);
+        this.bulkDialog?.nativeElement.close();
         this.createForm.reset();
         this.editing.set(null);
         this.deleting.set(null);

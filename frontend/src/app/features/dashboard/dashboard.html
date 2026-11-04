@@ -59,6 +59,24 @@
             <p class="field-error" id="expiration-error">{{ fieldError(createForm.controls.expiresAt, 'date') }}</p>
           </div>
         </div>
+        @if (duplicatesLoading()) { <p class="muted" role="status">{{ m.checkingDuplicates }}</p> }
+        @if (duplicatesError()) { <p class="muted" role="status">{{ duplicatesError() }}</p> }
+        @if (duplicates(); as page) {
+          @if (page.totalElements > 0) {
+            <section class="duplicate-notice" aria-labelledby="duplicates-title" [attr.aria-busy]="duplicatesLoading()">
+              <h3 id="duplicates-title">{{ copy.format(m.duplicatesHeading, { count: page.totalElements }) }}</h3>
+              <p class="muted">{{ m.duplicatesDescription }}</p>
+              <ul>
+                @for (link of page.content; track link.id) {
+                  <li><div><a [href]="shortUrl(link)" target="_blank" rel="noopener noreferrer">{{ shortUrl(link) }}</a><span [class]="'badge ' + status(link)">{{ m.status[status(link)] }}</span></div><button type="button" class="text-button" (click)="copyLink(shortUrl(link))" [attr.aria-label]="copy.format(m.copyLabel, { code: link.shortCode })">{{ m.copy }}</button></li>
+                }
+              </ul>
+              @if (page.totalPages > 1) {
+                <div class="page-controls"><button type="button" class="secondary" (click)="changeDuplicatePage(-1)" [disabled]="page.first || duplicatesLoading()" [attr.aria-label]="m.previous">←</button><span class="muted">{{ copy.format(m.pageLabel, { page: page.number + 1, pages: page.totalPages }) }}</span><button type="button" class="secondary" (click)="changeDuplicatePage(1)" [disabled]="page.last || duplicatesLoading()" [attr.aria-label]="m.next">→</button></div>
+              }
+            </section>
+          }
+        }
         <div class="form-footer"><p class="muted">{{ m.expirationHelp }}</p><button class="primary" type="submit" [disabled]="!!busy()">{{ busy() === 'create' ? m.creating : m.create }} <span aria-hidden="true">→</span></button></div>
         @if (createError()) { <p class="notice error" role="alert">{{ createError() }}</p> }
       </form>
@@ -108,11 +126,24 @@
           @if (page.content.length === 0) {
             <div class="empty"><span aria-hidden="true">↗</span><h3>{{ m.emptyHeading }}</h3><p>{{ m.emptyDescription }}</p></div>
           } @else {
+            <div class="bulk-toolbar">
+              <span class="muted" role="status">{{ selectedIds().size ? copy.format(m.bulk.selected, { count: selectedIds().size }) : m.bulk.hint }}</span>
+              @if (selectedIds().size) {
+                <div class="share-actions">
+                  <button type="button" class="secondary" (click)="requestBulk('activate')" [disabled]="!!busy() || listLoading() || selectedExpired || detailsLoading() !== null" [attr.aria-describedby]="selectedExpired ? 'bulk-expired-help' : null">{{ m.bulk.activate }}</button>
+                  <button type="button" class="secondary" (click)="requestBulk('deactivate')" [disabled]="!!busy() || listLoading() || detailsLoading() !== null">{{ m.bulk.deactivate }}</button>
+                  <button type="button" class="secondary danger-text" (click)="requestBulk('delete')" [disabled]="!!busy() || listLoading() || detailsLoading() !== null">{{ m.bulk.delete }}</button>
+                  <button type="button" class="text-button" (click)="togglePageSelection(false)" [disabled]="!!busy() || listLoading()">{{ m.bulk.clear }}</button>
+                </div>
+              }
+            </div>
+            @if (selectedIds().size && selectedExpired) { <p class="muted" id="bulk-expired-help">{{ m.bulk.expiredHelp }}</p> }
             <div class="table-wrap" [class.refreshing]="listLoading()"><table>
-              <thead><tr><th scope="col">{{ m.destination }}</th><th scope="col">{{ m.statusLabel }}</th><th scope="col">{{ m.clicks }}</th><th scope="col">{{ m.expires }}</th><th scope="col">{{ m.lastAccessed }}</th><th scope="col">{{ m.actions }}</th></tr></thead>
+              <thead><tr><th scope="col" class="selection-cell"><input type="checkbox" #selectPage [checked]="allPageSelected" [indeterminate]="selectedIds().size > 0 && !allPageSelected" (change)="togglePageSelection(selectPage.checked)" [disabled]="!!busy() || listLoading()" [attr.aria-label]="m.bulk.selectPage" /></th><th scope="col">{{ m.destination }}</th><th scope="col">{{ m.statusLabel }}</th><th scope="col">{{ m.clicks }}</th><th scope="col">{{ m.expires }}</th><th scope="col">{{ m.lastAccessed }}</th><th scope="col">{{ m.actions }}</th></tr></thead>
               <tbody>
                 @for (link of page.content; track link.id) {
-                  <tr>
+                  <tr [class.selected-row]="selectedIds().has(link.id)">
+                    <td class="selection-cell"><input type="checkbox" #selectLink [checked]="selectedIds().has(link.id)" (change)="toggleSelection(link.id, selectLink.checked)" [disabled]="!!busy() || listLoading()" [attr.aria-label]="copy.format(m.bulk.selectLink, { code: link.shortCode })" /></td>
                     <td class="destination"><a [href]="shortUrl(link)" target="_blank" rel="noopener noreferrer">{{ shortUrl(link) }}</a><span [title]="link.originalUrl">{{ link.originalUrl }}</span></td>
                     <td><span [class]="'badge ' + status(link)">{{ m.status[status(link)] }}</span></td>
                     <td>{{ link.clickCount | number }}</td><td>{{ link.expiresAt ? (link.expiresAt | date:'medium') : m.noExpiry }}</td><td>{{ link.lastAccessedAt ? (link.lastAccessedAt | date:'medium') : m.never }}</td>
@@ -143,6 +174,11 @@
     </section>
   </main>
 </div>
+<dialog #bulkDialog class="panel modal workspace-modal" aria-labelledby="bulk-title" aria-describedby="bulk-description" (cancel)="closeBulk($event)">
+  <h2 id="bulk-title">{{ bulkHeading }}</h2><p class="muted" id="bulk-description">{{ bulkAction() === 'delete' ? m.bulk.deleteDescription : m.bulk.statusDescription }}</p>
+  @if (bulkError()) { <p class="notice error" role="alert">{{ bulkError() }}</p> }
+  <div class="dialog-actions"><button type="button" class="secondary" (click)="closeBulk()" [disabled]="!!busy()" autofocus>{{ m.cancel }}</button><button type="button" [class]="bulkAction() === 'delete' ? 'danger' : 'primary'" (click)="confirmBulk()" [disabled]="!!busy()">{{ busy() === 'bulk' ? m.bulk.working : m.bulk.confirm }}</button></div>
+</dialog>
 <dialog #qrDialog class="panel modal workspace-modal qr-modal" aria-labelledby="qr-title" aria-describedby="qr-description" (cancel)="closeQr($event)">
   <h2 id="qr-title">{{ m.qrHeading }}</h2>
   <p class="muted" id="qr-description">{{ m.qrDescription }}</p>
