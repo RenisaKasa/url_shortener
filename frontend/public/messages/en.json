@@ -15,6 +15,12 @@
     "footerTagline": "LESS LINK. MORE POSSIBILITY.",
     "eyebrow": "SMALL LINKS. BIG POSSIBILITIES."
   },
+  "session": {
+    "heading": "Connection problem",
+    "connectionError": "Unable to connect. Please try again.",
+    "retry": "Try again",
+    "retrying": "Checking…"
+  },
   "titles": {
     "login": "Linkly — Log in",
     "register": "Linkly — Create your account",

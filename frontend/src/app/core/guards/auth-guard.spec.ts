@@ -8,7 +8,7 @@ import { firstValueFrom, isObservable, of, throwError } from 'rxjs';
 import { vi } from 'vitest';
 import { UserResponse } from '../models/auth.model';
 import { AuthService } from '../services/auth';
-import { authGuard, guestGuard } from './auth-guard';
+import { authGuard, guestGuard, SessionCheckState } from './auth-guard';
 
 describe('Authentication and role guards', () => {
   const user: UserResponse = {
@@ -82,6 +82,34 @@ describe('Authentication and role guards', () => {
       throwError(() => new HttpErrorResponse({ status: 401 })),
     );
     expect(await runGuard(guestGuard)).toBe(true);
+  });
+
+  it.each([0, 500, 503])('shows a retryable connection problem instead of redirecting on status %s', async status => {
+    restoreSession.mockReturnValue(throwError(() => new HttpErrorResponse({ status })));
+    const session = TestBed.inject(SessionCheckState);
+    expect(await runGuard(authGuard)).toBe(false);
+    expect(session.failedUrl()).toBe('/dashboard');
+    expect(session.checking()).toBe(false);
+    restoreSession.mockReturnValue(of(user));
+    expect(await runGuard(authGuard)).toBe(true);
+    expect(session.failedUrl()).toBeNull();
+  });
+
+  it.each([0, 500, 503])('does not assume the user is anonymous when a guest session check fails (%s)', async status => {
+    restoreSession.mockReturnValue(throwError(() => new HttpErrorResponse({ status })));
+    expect(await runGuard(guestGuard)).toBe(false);
+    expect(TestBed.inject(SessionCheckState).failedUrl()).toBe('/dashboard');
+  });
+
+  it('clears a previous connection problem when the server confirms an expired session', async () => {
+    const session = TestBed.inject(SessionCheckState);
+    session.failedUrl.set('/admin');
+    restoreSession.mockReturnValue(throwError(() => new HttpErrorResponse({ status: 401 })));
+    expectRedirect(await runGuard(authGuard), '/login');
+    expect(session.failedUrl()).toBeNull();
+    session.failedUrl.set('/login');
+    expect(await runGuard(guestGuard)).toBe(true);
+    expect(session.failedUrl()).toBeNull();
   });
 
   it('redirects logged-in users away from guest pages', async () => {

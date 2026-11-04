@@ -1,1 +1,8 @@
+@if (session.failedUrl()) {
+  <section class="connection-error" role="alert" aria-labelledby="connection-title" [attr.aria-busy]="session.checking()">
+    <h1 id="connection-title">{{ text().session.heading }}</h1>
+    <p>{{ text().session.connectionError }}</p>
+    <button type="button" (click)="retrySession()" [disabled]="session.checking()">{{ session.checking() ? text().session.retrying : text().session.retry }}</button>
+  </section>
+}
 <router-outlet />
