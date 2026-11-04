@@ -2,4 +2,9 @@
   display: block;
   min-height: 100dvh;
 }
+.connection-error { width: min(520px, calc(100% - 32px)); margin: 24px auto; padding: 24px; border: 1px solid #b4a4e640; border-radius: 16px; background: #191d36; color: #f4f2ff; }
+.connection-error h1 { margin: 0 0 12px; font-size: 22px; }
+.connection-error p { color: #c7c2da; line-height: 1.6; }
+.connection-error button { padding: 10px 16px; border: 0; border-radius: 8px; background: linear-gradient(110deg, #993cff, #486aff); color: white; }
+.connection-error button:disabled { opacity: .6; }
 
