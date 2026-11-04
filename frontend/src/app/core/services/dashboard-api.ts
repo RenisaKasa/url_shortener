@@ -51,6 +51,22 @@ export class DashboardApi {
     });
   }
 
+  duplicates(originalUrl: string, page = 0) {
+    const params = new HttpParams().set('originalUrl', originalUrl.trim())
+      .set('page', page).set('size', 3).set('sort', 'createdAt,desc');
+    return this.http.get<PageResponse<ShortUrl>>(`${this.base}/urls/duplicates`, {
+      params, withCredentials: true,
+    });
+  }
+
+  bulkSetActive(ids: number[], active: boolean) {
+    return this.write<void>('PATCH', '/urls/bulk', { ids, active });
+  }
+
+  bulkDelete(ids: number[]) {
+    return this.write<void>('POST', '/urls/bulk-delete', { ids });
+  }
+
   create(body: CreateUrlRequest) {
     return this.write<CreateUrlResponse>('POST', '/urls', body);
   }

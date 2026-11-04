@@ -181,6 +181,38 @@
     "expirationPresetsHelp": "From now, or choose a custom date above.",
     "create": "Shorten link",
     "creating": "Creating…",
+    "checkingDuplicates": "Checking for existing links…",
+    "duplicateCheckError": "Could not check for existing links. You can still create a new link.",
+    "duplicatesHeading": "Existing links for this destination: {count}",
+    "duplicatesDescription": "Copy an existing short link below, or create another one. Existing links do not prevent creation.",
+    "bulk": {
+      "hint": "Select links on this page to manage them together. Selection resets when the list changes.",
+      "selectPage": "Select all links on this page",
+      "selectLink": "Select link {code}",
+      "selected": "Selected links: {count}",
+      "activate": "Activate selected",
+      "deactivate": "Deactivate selected",
+      "delete": "Delete selected",
+      "clear": "Clear selection",
+      "expiredHelp": "To activate expired links, first edit their expiration dates individually.",
+      "headings": {
+        "activate": "Activate selected links ({count})?",
+        "deactivate": "Deactivate selected links ({count})?",
+        "delete": "Delete selected links ({count})?"
+      },
+      "statusDescription": "This changes every selected link together. Deactivated links stop redirecting. If any selected link cannot be changed, none will be changed.",
+      "deleteDescription": "Every selected link will be permanently deleted. This cannot be undone. If any selected link cannot be deleted, none will be deleted.",
+      "confirm": "Confirm",
+      "working": "Applying changes…",
+      "expired": "No links were changed. One or more links may have expired. Update their expiration dates before activating them. The list has been refreshed.",
+      "missing": "No links were changed. One or more selected links are no longer available. The list has been refreshed; select the links again.",
+      "invalid": "No links were changed. Refresh your selection and try again.",
+      "completed": {
+        "activate": "Selected links activated: {count}.",
+        "deactivate": "Selected links deactivated: {count}.",
+        "delete": "Selected links deleted: {count}."
+      }
+    },
     "created": "Your short link is ready.",
     "readyToShare": "Ready to share",
     "qr": "QR code",
