@@ -4,6 +4,10 @@ import com.urlshortener.url_shortener.entity.ShortUrl;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
 import org.springframework.data.jpa.repository.Modifying;
+import org.springframework.data.jpa.repository.Lock;
+import jakarta.persistence.LockModeType;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import com.urlshortener.url_shortener.dto.DashboardStatisticsResponse;
@@ -22,6 +26,24 @@ public interface ShortUrlRepository extends
     boolean existsByShortCode(String shortCode);
 
     List<ShortUrl> findByUserId(Long userId);
+
+    Page<ShortUrl> findByUserIdAndOriginalUrl(Long userId, String originalUrl, Pageable pageable);
+
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    List<ShortUrl> findByUserIdAndIdInOrderByIdAsc(Long userId, List<Long> ids);
+
+    @Modifying(clearAutomatically = true, flushAutomatically = true)
+    @Query("""
+            update ShortUrl u set u.active = :active
+            where u.user.id = :ownerId and u.id in :ids
+              and (:active = false or u.expiresAt is null or u.expiresAt > :now)
+            """)
+    int updateActiveForOwner(@Param("ownerId") Long ownerId, @Param("ids") List<Long> ids,
+                             @Param("active") boolean active, @Param("now") Instant now);
+
+    @Modifying(clearAutomatically = true, flushAutomatically = true)
+    @Query("delete from ShortUrl u where u.user.id = :ownerId and u.id in :ids")
+    int deleteForOwner(@Param("ownerId") Long ownerId, @Param("ids") List<Long> ids);
 
     @Modifying(clearAutomatically = true, flushAutomatically = true)
     @Query("""

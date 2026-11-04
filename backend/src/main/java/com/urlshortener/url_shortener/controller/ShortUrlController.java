@@ -2,6 +2,9 @@ package com.urlshortener.url_shortener.controller;
 
 import com.urlshortener.url_shortener.dto.CreateUrlRequest;
 import com.urlshortener.url_shortener.dto.CreateUrlResponse;
+import com.urlshortener.url_shortener.dto.ShortUrlResponse;
+import com.urlshortener.url_shortener.query.PageRequests;
+import org.springframework.data.domain.Page;
 import com.urlshortener.url_shortener.service.ShortUrlService;
 
 import jakarta.validation.Valid;
@@ -57,6 +60,16 @@ public class ShortUrlController {
         );
 
         return ResponseEntity.status(HttpStatus.CREATED).body(response);
+    }
+
+    @GetMapping("/api/urls/duplicates")
+    public Page<ShortUrlResponse> duplicates(
+            @RequestParam String originalUrl,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "20") int size,
+            @RequestParam(defaultValue = "createdAt,desc") String sort
+    ) {
+        return service.duplicates(originalUrl, PageRequests.urls(page, size, sort));
     }
 
     @GetMapping("/r/{code}")

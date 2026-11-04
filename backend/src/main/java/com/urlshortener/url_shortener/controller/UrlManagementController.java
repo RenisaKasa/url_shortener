@@ -1,6 +1,8 @@
 package com.urlshortener.url_shortener.controller;
 
 import com.urlshortener.url_shortener.dto.ShortUrlResponse;
+import com.urlshortener.url_shortener.dto.BulkUrlStatusRequest;
+import com.urlshortener.url_shortener.dto.BulkUrlDeleteRequest;
 import com.urlshortener.url_shortener.dto.UpdateUrlRequest;
 import com.urlshortener.url_shortener.dto.UrlStatus;
 import com.urlshortener.url_shortener.query.PageRequests;
@@ -40,6 +42,18 @@ public class UrlManagementController {
     @GetMapping("/{id}")
     public ShortUrlResponse get(@PathVariable Long id) {
         return service.get(id);
+    }
+
+    @PatchMapping("/bulk")
+    public ResponseEntity<Void> bulkSetActive(@Valid @RequestBody BulkUrlStatusRequest request) {
+        service.bulkSetActive(request.ids(), request.active());
+        return ResponseEntity.noContent().build();
+    }
+
+    @PostMapping("/bulk-delete")
+    public ResponseEntity<Void> bulkDelete(@Valid @RequestBody BulkUrlDeleteRequest request) {
+        service.bulkDelete(request.ids());
+        return ResponseEntity.noContent().build();
     }
 
     @PatchMapping("/{id}")

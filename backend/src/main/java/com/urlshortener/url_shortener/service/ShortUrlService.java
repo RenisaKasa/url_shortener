@@ -1,12 +1,15 @@
 package com.urlshortener.url_shortener.service;
 
 import com.urlshortener.url_shortener.dto.CreateUrlRequest;
+import com.urlshortener.url_shortener.dto.ShortUrlResponse;
 import com.urlshortener.url_shortener.entity.ShortUrl;
 import com.urlshortener.url_shortener.repository.ShortUrlRepository;
 import com.urlshortener.url_shortener.repository.UserRepository;
 import com.urlshortener.url_shortener.security.AccountPrincipal;
 
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.context.SecurityContextHolder;
@@ -109,6 +112,16 @@ public class ShortUrlService {
         return URI.create(url.getOriginalUrl());
     }
 
+    @Transactional(readOnly = true)
+    @PreAuthorize("isAuthenticated()")
+    public Page<ShortUrlResponse> duplicates(String originalUrl, Pageable pageable) {
+        String validated = validateUrl(originalUrl);
+        var owner = (AccountPrincipal) SecurityContextHolder.getContext()
+                .getAuthentication().getPrincipal();
+        return urls.findByUserIdAndOriginalUrl(owner.getId(), validated, pageable)
+                .map(ShortUrlResponse::from);
+    }
+
     private String generateCode() {
         for (int attempt = 0; attempt < 10; attempt++) {
             String code = UUID.randomUUID()
@@ -128,6 +141,10 @@ public class ShortUrlService {
     }
 
     private String validateUrl(String value) {
+        if (value == null || value.isBlank() || value.length() > 2048) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                    "URL is required and must not exceed 2048 characters");
+        }
         String normalized = value.trim();
 
         try {
